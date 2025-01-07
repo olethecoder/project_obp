@@ -16,5 +16,3 @@ for url in urls:
     with open(file_path, 'wb') as f:
         f.write(r.content)
     print('Downloaded ' + file_path)
-    
-    # je dikke moeder
