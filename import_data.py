@@ -1,6 +1,8 @@
 import requests
 import os
 
+
+
 base_url = 'https://docs.google.com/spreadsheets/d/1xdJA8uSvUBGFET2Smih_s_desxMj6T8xab158fy79S0/gviz/tq?tqx=out:csv&sheet='
 
 shifts = base_url + 'shifts'
