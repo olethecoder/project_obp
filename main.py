@@ -5,7 +5,7 @@ def main():
     # import data
 
     # parse input
-    shifts = InputParser.parse_input('data/shifts.csv')
+    shifts = InputParser.parse_input('data/shifts_easy.csv')
     tasks = InputParser.parse_input('data/tasks_easy.csv')
     
     # 2) Instantiate solver
@@ -29,8 +29,6 @@ def main():
             print(info)
     
     # Dashboard
-
-
 
 if __name__ == "__main__":
     main()
