@@ -5,15 +5,14 @@ def main():
     # import data
 
     # parse input
-    shifts = InputParser.parse_input('data/shifts_easy.csv')
-    tasks = InputParser.parse_input('data/tasks_easy.csv')
+    shifts = InputParser.parse_input('data/shifts_test.csv')
+    tasks = InputParser.parse_input('data/tasks.csv')
     
     # 2) Instantiate solver
     solver = NurseSchedulingSolver(
         shifts, 
         tasks,
-        time_granularity=15,
-        max_nurses=30
+        max_nurses_per_shift = 100
     )
 
     # 3) Solve
@@ -23,11 +22,9 @@ def main():
     solver.print_solution()
 
     # 5) Extract usage
-    usage = solver.get_shift_usage()
-    for info in usage:
-        if info["activated"] == 1 and info["nurses"] > 0:
-            print(info)
-    
+    usage = solver.get_solution_usage()
+    print("\nUsage data:", usage)
+
     # Dashboard
 
 if __name__ == "__main__":
