@@ -2,27 +2,12 @@ import streamlit as st
 import pandas as pd
 import io
 import os
-
-# Placeholder for your solver function
-def solve_schedule(shifts_df, tasks_df):
-    """
-    This is a placeholder. Replace with your actual scheduling logic.
-    """
-    # Example: Simple logic (replace with your solver)
-    if shifts_df.empty or tasks_df.empty:
-        return pd.DataFrame({"Message":["No data provided"]})
-    
-    # Example: Return the first shift and task as a result
-    results = pd.DataFrame({
-        "Shift": [shifts_df.iloc[0].to_dict()],
-        "Task": [tasks_df.iloc[0].to_dict()],
-        "Status": ["Scheduled"]
-    })
-
-    return results
-
+from dash_solver import dash_solver
 
 st.title("Shift Scheduling Decision Support System")
+
+st.sidebar.header("Instructions")
+st.sidebar.write("Placeholder here")
 
 # Function to load data from file
 def load_data_from_file(filepath):
@@ -48,8 +33,8 @@ uploaded_tasks = st.file_uploader("Upload Tasks CSV", type=["csv"])
 st.subheader("Load Data from Files")
 col_load1, col_load2 = st.columns(2)
 
-shifts_filepath = os.path.join(os.path.dirname(__file__), "../data/shifts.csv")
-tasks_filepath = os.path.join(os.path.dirname(__file__), "../data/tasks.csv")
+shifts_filepath = os.path.join(os.path.dirname(__file__), "data/shifts.csv")
+tasks_filepath = os.path.join(os.path.dirname(__file__), "data/tasks.csv")
 
 with col_load1:
     if st.button("Load Shifts from File"):
@@ -97,15 +82,14 @@ if uploaded_tasks is not None:
 
 # Data Display (modified to show columns under each other)
 st.subheader("Uploaded Data")
-
-st.write("Shifts:")
+st.subheader("Shifts:")
 
 if not shifts_df.empty:
     st.dataframe(shifts_df)
 else:
     st.write("No shifts data available.")
 
-st.write("Tasks:")
+st.subheader("Tasks:")
 if not tasks_df.empty:
     st.dataframe(tasks_df)
 else:
@@ -119,7 +103,7 @@ if st.button("Generate Schedule"):
     else:
         with st.spinner("Solving..."):
             try:
-                results_df = solve_schedule(shifts_df, tasks_df)
+                results_df = dash_solver(shifts_df, tasks_df)
                 st.session_state['results'] = results_df
             except Exception as e:
                 st.error(f"An error occurred during solving: {e}")
@@ -130,18 +114,7 @@ st.subheader("Schedule Results")
 if 'results' in st.session_state:
     results_df = st.session_state['results']
 
-    if "Message" in results_df.columns:
-        st.write(results_df["Message"][0]) # Display the message if there is one
-    else:
-        st.dataframe(results_df)
+    st.write(results_df)
 
-        # Example of displaying shift and task information from the results
-        st.write("Scheduled Shifts:")
-        for shift in results_df['Shift']:
-            st.write(shift)
-
-        st.write("Scheduled Tasks:")
-        for task in results_df['Task']:
-            st.write(task)
 else:
     st.write("No schedule generated yet. Click 'Generate Schedule'.")
