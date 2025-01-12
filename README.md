@@ -6,4 +6,8 @@
 
 2. Start the dashboard by typing:
 
-```streamlit run app.py```
+```
+streamlit run app.py
+```
+
+### Dashboard UI
