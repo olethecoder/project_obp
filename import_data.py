@@ -5,8 +5,10 @@ base_url = 'https://docs.google.com/spreadsheets/d/1xdJA8uSvUBGFET2Smih_s_desxMj
 
 shifts = base_url + 'shifts'
 tasks = base_url + 'tasks'
+shifts_easy = base_url + 'shifts_easy'
+tasks_easy = base_url + 'tasks_easy'
 
-urls = [shifts, tasks]
+urls = [shifts, tasks, shifts_easy, tasks_easy]
 
 os.makedirs('data', exist_ok=True)
 
