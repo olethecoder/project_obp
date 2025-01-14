@@ -1,18 +1,18 @@
 from input_parser import InputParser
-from solver import OptimalNurseScheduler
+from solver import OptimalNurseSchedulerCP
 
 def main():
     # import data
 
     # parse input
-    shifts = InputParser.parse_input('data/shifts_test.csv')
-    tasks = InputParser.parse_input('data/tasks.csv')
+    parser = InputParser("data")
+    shifts = parser.parse_input("shifts")
+    tasks = parser.parse_input("tasks")
     
     # 2) Instantiate solver
-    solver = OptimalNurseScheduler(
-        shifts, 
+    solver = OptimalNurseSchedulerCP(
+        shifts,
         tasks,
-        max_nurses_per_shift = 100
     )
 
     # 3) Solve
