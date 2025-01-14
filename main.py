@@ -1,5 +1,5 @@
 from input_parser import InputParser
-from solver import NurseSchedulingSolver
+from solver import OptimalNurseScheduler
 
 def main():
     # import data
@@ -9,7 +9,7 @@ def main():
     tasks = InputParser.parse_input('data/tasks.csv')
     
     # 2) Instantiate solver
-    solver = NurseSchedulingSolver(
+    solver = OptimalNurseScheduler(
         shifts, 
         tasks,
         max_nurses_per_shift = 100
@@ -17,13 +17,6 @@ def main():
 
     # 3) Solve
     solver.solve()
-
-    # 4) Print solution
-    solver.print_solution()
-
-    # 5) Extract usage
-    usage = solver.get_solution_usage()
-    print("\nUsage data:", usage)
 
     # Dashboard
 
