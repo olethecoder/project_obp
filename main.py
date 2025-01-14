@@ -1,18 +1,24 @@
 from input_parser import InputParser
-
+from solver import OptimalNurseScheduler
 
 def main():
     # import data
 
     # parse input
-    shifts = InputParser.parse_input('data/shifts.csv')
+    shifts = InputParser.parse_input('data/shifts_test.csv')
     tasks = InputParser.parse_input('data/tasks.csv')
     
-    # solve problem: lp class
+    # 2) Instantiate solver
+    solver = OptimalNurseScheduler(
+        shifts, 
+        tasks,
+        max_nurses_per_shift = 100
+    )
 
-    #dashboard
+    # 3) Solve
+    solver.solve()
 
-
+    # Dashboard
 
 if __name__ == "__main__":
     main()

@@ -24,6 +24,7 @@ class InputParser:
 
         print(shifts)
         print(tasks)
+    
 
 
 
