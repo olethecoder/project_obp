@@ -6,8 +6,8 @@ def download_sheets():
 
     shifts = base_url + 'shifts'
     tasks = base_url + 'tasks'
-    shifts_easy = base_url + 'shifts_easy'
-    tasks_easy = base_url + 'tasks_easy'
+    shifts_easy = base_url + 'shifts_hard'
+    tasks_easy = base_url + 'tasks_hard'
 
     urls = [shifts, tasks, shifts_easy, tasks_easy]
 
