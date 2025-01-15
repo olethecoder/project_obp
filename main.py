@@ -5,7 +5,7 @@ def main():
     # import data
 
     # parse input
-    shifts = InputParser.parse_input('data/shifts_test.csv')
+    shifts = InputParser.parse_input('data/shifts.csv')
     tasks = InputParser.parse_input('data/tasks.csv')
     
     # 2) Instantiate solver
