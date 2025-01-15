@@ -5,8 +5,11 @@ def main():
     # import data
 
     # parse input
-    shifts = InputParser.parse_input('data/shifts_test.csv')
-    tasks = InputParser.parse_input('data/tasks.csv')
+    parser = InputParser("data")
+    shifts = parser.parse_input('shifts')
+    tasks = parser.parse_input('tasks')
+    print(shifts)
+    print(tasks)
     
     # 2) Instantiate solver
     solver = OptimalNurseScheduler(

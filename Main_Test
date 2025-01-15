@@ -1,0 +1,24 @@
+from input_parser import InputParser
+from Preprocess import Preprocessor
+
+
+def main():
+    # import data
+
+    # parse input
+    parser = InputParser("data")
+    shifts_df = parser.parse_input('shifts')
+    tasks_df = parser.parse_input('tasks')
+    
+    # 2) Instantiate solver
+    prepped = Preprocessor(
+        shifts_df, 
+        tasks_df,
+    )
+
+    shifts = prepped.shift_info
+    tasks = prepped.tasks_info
+
+
+if __name__ == "__main__":
+    main()
