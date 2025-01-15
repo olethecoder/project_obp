@@ -17,7 +17,6 @@ def main():
     print("\nAugmented tasks DataFrame:\n", tasks_solution_df)
     print("\nAugmented shifts DataFrame:\n", shifts_solution_df)
 
-
     # Dashboard
 
 if __name__ == "__main__":

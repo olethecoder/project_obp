@@ -378,8 +378,15 @@ class OptimalNurseSchedulerCP:
         # 2) TASKS solution DataFrame (day-specific tasks)
         day_specific_records = []
         for i, tinfo in enumerate(self.tasks_info):
+            
+            # Extract the earliest/latest from the stored blocks
+            earliest_block = tinfo["earliest_block"]
+            latest_block   = tinfo["latest_block"]
+            duration = tinfo["duration_blocks"]
+            earliest_time_str = block_to_timestr(earliest_block)
+            latest_time_str   = block_to_timestr(latest_block)
+            duration = block_to_minute(duration)
             start_block = solver.Value(self.task_start_vars[i])
-            end_block   = solver.Value(self.task_end_vars[i])
             solution_start_str = block_to_timestr(start_block)
 
             orig_task_idx, day_index = self.task_map[i]
@@ -387,9 +394,10 @@ class OptimalNurseSchedulerCP:
                 "original_task_idx": orig_task_idx,
                 "day_index": day_index,
                 "task_name": tinfo["task_name"],
-                "solution_start_block": start_block,
-                "solution_end_block": end_block,
+                "start_window": earliest_time_str,
+                "end_window": latest_time_str,
                 "solution_start": solution_start_str,
+                "duration": duration,
                 "required_nurses": tinfo["required_nurses"]
             })
 
