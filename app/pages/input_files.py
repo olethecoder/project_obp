@@ -7,6 +7,8 @@ global_sidebar()
 
 def display_uploaded_files():
     st.title("Display Uploaded Files")
+    
+    st.write("todoL also add example format of file")
 
     temp_dir = 'app/temp'
     file1_path = None
