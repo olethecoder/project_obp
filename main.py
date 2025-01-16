@@ -17,6 +17,9 @@ def main():
     print("\nAugmented tasks DataFrame:\n", tasks_solution_df)
     print("\nAugmented shifts DataFrame:\n", shifts_solution_df)
 
+    tasks_solution_df.to_csv("data/tasks_solution.csv", index=False)
+    shifts_solution_df.to_csv("data/shifts_solution.csv", index=False)
+
     # Dashboard
 
 if __name__ == "__main__":
