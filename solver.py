@@ -224,13 +224,16 @@ class OptimalNurseSchedulerCP:
                 e_h, e_m = map(int, end_str.split(':'))
                 latest_min = day_offset + e_h * 60 + e_m
 
-                # If end < start, assume it crosses midnight => + WEEK_MINUTES
+                # If end < start, assume it crosses midnight => + Minutes in 1 day
                 if latest_min < earliest_min:
-                    latest_min += WEEK_MINUTES
+                    latest_min += 24*60
 
                 duration_blocks = duration // TIME_GRAN
                 earliest_block  = earliest_min // TIME_GRAN
                 latest_block    = latest_min // TIME_GRAN
+
+                # Wrap blocks explicitly to handle tasks crossing sunday midnight
+                latest_block %= N_BLOCKS
 
                 self.tasks_info.append({
                     "task_name": task_name,
@@ -278,9 +281,9 @@ class OptimalNurseSchedulerCP:
             # Link start and end: end_var == start_var + duration
             self.model.Add(end_var == start_var + d_b)
 
-            # Interval var
-            interval_var = self.model.NewIntervalVar(start_var, d_b, end_var, f"task_{i}_interval")
-            self.task_intervals.append(interval_var)
+            # Interval var can be added to easily add complex constraints
+            # interval_var = self.model.NewIntervalVar(start_var, d_b, end_var, f"task_{i}_interval")
+            # self.task_intervals.append(interval_var)
 
             # Build coverage booleans
             covers_b = {}
@@ -354,7 +357,7 @@ class OptimalNurseSchedulerCP:
         solver = cp_model.CpSolver()
         # Optional solver parameters
         solver.parameters.num_search_workers = 8
-        solver.parameters.max_time_in_seconds = 20
+        solver.parameters.max_time_in_seconds = 40
 
         status = solver.Solve(self.model)
         if status not in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
