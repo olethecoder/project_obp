@@ -56,6 +56,8 @@ class Preprocessor:
     def _prepare_shifts(self):
         # For each shift template, create a single coverage array covering all active days
         for idx, row in self.shifts_df.iterrows():
+            shift_name   = row["name"] 
+            max_nurses   = int(row["max_nurses"])
             start_str = row['start']
             end_str = row['end']
             brk_str = row['break']
@@ -104,9 +106,11 @@ class Preprocessor:
             weight_scaled = int(round(raw_weight * 100))
             shift_len_blocks = sum(coverage_arr)
             self.shift_info.append({
+                "name": shift_name,
                 "coverage": coverage_arr,
                 "weight_scaled": weight_scaled,
-                "length_blocks": shift_len_blocks
+                "length_blocks": shift_len_blocks,
+                "max_nurses": max_nurses
             })
 
     def _prepare_tasks(self):

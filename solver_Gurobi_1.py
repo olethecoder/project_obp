@@ -5,8 +5,8 @@ from Preprocess import Preprocessor
 
 # 1) Parse input
 parser = InputParser("data")
-shifts_df = parser.parse_input('shifts')
-tasks_df = parser.parse_input('tasks')
+shifts_df = parser.parse_input('shifts_hard')
+tasks_df = parser.parse_input('tasks_easy')
 
 # 2) Preprocess data
 prepped = Preprocessor(
@@ -17,8 +17,8 @@ prepped = Preprocessor(
 
 ### Sets and Parameters
 shifts = prepped.shift_info
-
 tasks = prepped.tasks_info
+
 T = range(1, 673) # Time blocks (1 to 672)
 N = range(1, len(tasks)+1) # Tasks 
 S = range(1,len(shifts)+1) # Shifts

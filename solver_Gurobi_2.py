@@ -6,7 +6,7 @@ from Preprocess import Preprocessor
 # 1) Parse input
 parser = InputParser("data")
 shifts_df = parser.parse_input('shifts_hard')
-tasks_df = parser.parse_input('tasks_hard')
+tasks_df = parser.parse_input('tasks_easy')
 
 # 2) Preprocess data
 prepped = Preprocessor(
@@ -34,7 +34,7 @@ for i in N:
         for k in range(1,tasks[i-1]['duration_blocks']+1):
             candidate_blocks[i-1][j-1].append(tasks[i-1]['earliest_block']+j-1+k-1)
 
-# Candidate task block j covers time block t
+# Candidate task i block j covers time block t
 g = {}
 for i in N:
     for j in range(1,len(candidate_blocks[i-1])+1):
@@ -76,14 +76,13 @@ model.setObjective(gp.quicksum(k[j] * shifts[j-1]['weight_scaled']/100 * shifts[
 for i in N:
     model.addConstr(gp.quicksum(f[i,j] for j in range(1,len(candidate_blocks[i-1])+1)) == 1)
 
-
-#
+# Task i active at time t
 for i in N: 
     for t in T:
         model.addConstr(u[i,t] >= gp.quicksum(f[i,j]*g[i,j,t] for j in range(1,len(candidate_blocks[i-1])+1)))
 
 
-# Total number of tasks on time t
+# Total number of tasks at time t
 for t in T:
     model.addConstr(x[t] >= gp.quicksum(u[i,t]*tasks[i-1]["required_nurses"] for i in N))
 
@@ -100,6 +99,10 @@ for t in T:
 # Total shift coverage
 for t in T:
     model.addConstr(n[t]<= gp.quicksum(e[j,t]*k[j] for j in S))
+
+# Max number of nurses per shift
+for j in S:
+    model.addConstr(k[j]<= shifts[j-1]["max_nurses"])
 
 # Every task covered:
 for t in T:
