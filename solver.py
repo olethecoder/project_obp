@@ -1,52 +1,69 @@
-from ortools.sat.python import cp_model
-import pandas as pd
+import time
+from collections import defaultdict
 
-# ----------------------------------------------------------------------
-# Global constants
-# ----------------------------------------------------------------------
+import pandas as pd
+from ortools.sat.python import cp_model
+
 WEEK_MINUTES = 7 * 24 * 60      # 10080 minutes in a week
 TIME_GRAN = 15                  # 15-minute blocks
 N_BLOCKS = WEEK_MINUTES // TIME_GRAN  # 672 blocks in a week
 
-# ----------------------------------------------------------------------
-# Helper functions
-# ----------------------------------------------------------------------
 def minute_to_block(m: int) -> int:
-    """
-    Convert an absolute minute in the week to a 15-minute block index.
+    """Convert an absolute minute in the week to a 15-minute block index.
+
+    Args:
+        m (int): The absolute minute in the week (0 <= m < 10080).
+
+    Returns:
+        int: The block index (0 <= block < 672).
     """
     return m // TIME_GRAN
 
 def block_to_minute(b: int) -> int:
-    """
-    Convert a 15-minute block index back to an absolute minute in the week.
+    """Convert a 15-minute block index back to an absolute minute in the week.
+
+    Args:
+        b (int): The 15-minute block index (0 <= b < 672).
+
+    Returns:
+        int: The corresponding minute (0 <= minute < 10080).
     """
     return b * TIME_GRAN
 
 def block_to_timestr(b: int) -> str:
+    """Convert a block index into an 'HH:MM' string (mod 24 hours).
+
+    Ignores which day of the week and returns just the time in 0-23:59 format.
+
+    Args:
+        b (int): Block index (0-based, 15-minute increments).
+
+    Returns:
+        str: The corresponding time string, e.g. '08:15'.
     """
-    Convert a block index into an HH:MM string (mod 24 hours). 
-    This ignores the day of the week and just returns the 
-    time in 0-23:59 format.
-    """
-    blocks_per_day = 1440 // TIME_GRAN
+    blocks_per_day = 1440 // TIME_GRAN  # 1440 minutes / 15
     minute_of_day = block_to_minute(b % blocks_per_day)
     hh = minute_of_day // 60
     mm = minute_of_day % 60
     return f"{hh:02d}:{mm:02d}"
 
 def add_coverage_blocks(cover_array, start_min, end_min):
-    """
-    Mark coverage_arr[b] = 1 for blocks in [start_min, end_min),
-    wrapping if needed from Sunday -> Monday.
+    """Mark cover_array[b] = 1 for blocks in [start_min, end_min).
+
+    Wraps if needed from Sunday -> Monday.
+
+    Args:
+        cover_array (list of int): The weekly coverage array, length N_BLOCKS (672).
+        start_min (int): Start minute of the coverage interval.
+        end_min (int): End minute (exclusive) of the coverage interval.
     """
     if end_min <= WEEK_MINUTES:
         s_block = minute_to_block(start_min)
         e_block = max(s_block, minute_to_block(end_min - 1))
         for b in range(s_block, min(e_block + 1, N_BLOCKS)):
             cover_array[b] = 1
-    else:
-        # crosses boundary from Sunday into Monday
+    else: 
+        # crosses boundary from Sunday -> Monday
         s_block = minute_to_block(start_min)
         for b in range(s_block, N_BLOCKS):
             cover_array[b] = 1
@@ -55,10 +72,15 @@ def add_coverage_blocks(cover_array, start_min, end_min):
         for b in range(0, min(e_block2 + 1, N_BLOCKS)):
             cover_array[b] = 1
 
-def remove_coverage_blocks(cover_array, start_min, end_min):
-    """
-    Mark coverage_arr[b] = 0 for blocks in [start_min, end_min),
-    wrapping if needed.
+def remove_coverage_blocks(cover_array, start_min, end_min): 
+    """Mark cover_array[b] = 0 for blocks in [start_min, end_min).
+
+    Wraps if needed from Sunday -> Monday.
+
+    Args:
+        cover_array (list of int): The weekly coverage array, length N_BLOCKS (672).
+        start_min (int): Start minute of the coverage interval.
+        end_min (int): End minute (exclusive) of the coverage interval.
     """
     if end_min <= WEEK_MINUTES:
         s_block = minute_to_block(start_min)
@@ -66,6 +88,7 @@ def remove_coverage_blocks(cover_array, start_min, end_min):
         for b in range(s_block, min(e_block + 1, N_BLOCKS)):
             cover_array[b] = 0
     else:
+        # crosses boundary from Sunday -> Monday
         s_block = minute_to_block(start_min)
         for b in range(s_block, N_BLOCKS):
             cover_array[b] = 0
@@ -73,64 +96,115 @@ def remove_coverage_blocks(cover_array, start_min, end_min):
         e_block2 = minute_to_block(end2 - 1)
         for b in range(0, min(e_block2 + 1, N_BLOCKS)):
             cover_array[b] = 0
+
+
+### NEW: A callback to capture intermediate solutions.
+class IntermediateSolutionCallback(cp_model.CpSolverSolutionCallback):
+    """A callback class that records (objective_cost, elapsed_time) whenever a
+    new solution is found.
+
+    Attributes:
+        _start_time (float): Wall-clock time when the solve started.
+        solutions (list of tuples): Each entry is (objective_value, time_found).
+    """
+
+    def __init__(self, start_time):
+        """Initialize the callback with the start time of the search.
+
+        Args:
+            start_time (float): The time.time() timestamp when the solver started.
+        """
+        super().__init__()
+        self._start_time = start_time
+        self.solutions = []
+
+    def OnSolutionCallback(self):
+        """Called by the solver when a new solution is found or improved."""
+        current_objective = self.ObjectiveValue()
+        elapsed_time = time.time() - self._start_time
+        # Record and print the intermediate solution details
+        print(f"Intermediate solution found. Cost={current_objective}, Time={elapsed_time:.2f}s")
+        self.solutions.append((current_objective, elapsed_time))
 
 
 class OptimalNurseSchedulerCP:
-    """
-    This class builds and solves a shift-allocation + task-scheduling problem
-    using Google's OR-Tools CP-SAT solver.
+    """Builds and solves a nurse scheduling + task-coverage problem, with
+    handover and a global minimum coverage constraint.
 
-    The solution can return:
-      1) The total cost (float).
-      2) An augmented tasks DataFrame, containing each day-specific subtask,
-         along with its assigned start time in HH:MM format.
-      3) The original shifts DataFrame with an added 'usage' column
-         indicating how many nurses are assigned to each shift.
+    Attributes:
+        shifts_df (pd.DataFrame): Original shifts data.
+        tasks_df (pd.DataFrame): Original tasks data.
+        min_nurses_anytime (int): Minimum required nurses that must be available
+            (not handing over or just arrived) at every block, even if no tasks.
+        max_solve_time (float): Maximum time (in seconds) to let the solver run.
+        shift_info (list): Shift coverage + metadata.
+        shift_usage_vars (list of IntVar): The integer variables representing
+            the number of nurses assigned to each shift.
+        tasks_info (list): Day-specific expansions of tasks.
+        task_start_vars (list of IntVar): The starting block for each day-specific task.
+        task_end_vars (list of IntVar): The ending block for each task.
+        task_covers_bool (list of dict): For each task, a dict {block -> BoolVar}.
+        task_map (list of tuple): Mapping back to original tasks (row_idx, day_idx).
+        shift_start_blocks (dict): block -> list of shift indices that begin at that block.
+        model (CpModel): The OR-Tools CP-SAT model.
     """
 
-    def __init__(self, shifts_df: pd.DataFrame, tasks_df: pd.DataFrame):
+    def __init__(
+        self,
+        shifts_df: pd.DataFrame,
+        tasks_df: pd.DataFrame,
+        min_nurses_anytime: int = 0,    ### NEW
+        max_solve_time: float = 60.0    ### NEW
+    ):
+        """Initialize and build the nurse scheduler model.
+
+        Args:
+            shifts_df (pd.DataFrame): Table of shifts with columns such as
+                'name', 'start', 'end', 'break', 'break_duration', 'max_nurses',
+                'weight', and boolean 1/0 columns for each weekday.
+            tasks_df (pd.DataFrame): Table of tasks with columns such as
+                'task', 'start', 'end', 'duration_min', 'nurses_required',
+                and boolean 1/0 columns for each weekday.
+            min_nurses_anytime (int, optional): A global minimum number of nurses
+                that must always be available each time block. Defaults to 0.
+            max_solve_time (float, optional): Maximum time in seconds to spend
+                in the CP solver. Defaults to 60.0.
+        """
         self.model = cp_model.CpModel()
 
-        # Make local copies so original data is not mutated
         self.shifts_df = shifts_df.copy()
         self.tasks_df = tasks_df.copy()
 
-        # Data structures for SHIFT
-        self.shift_info = []           # List of dicts: coverage arrays, shift name, weight, etc.
-        self.shift_usage_vars = []     # Each shift gets one integer variable for usage
+        self.min_nurses_anytime = min_nurses_anytime   ### NEW
+        self.max_solve_time = max_solve_time           ### NEW
 
-        # Data structures for TASK
-        self.tasks_info = []           # Each row is one "day-specific" task
-        self.task_start_vars = []      # Start block var
-        self.task_end_vars = []        # End block var
-        self.task_intervals = []       # Interval var
-        self.task_covers_bool = []     # List of dicts {block_index: boolvar} indicating coverage in each block
-
-        # We'll store (original_task_idx, day_index) for each day-specific task
-        # so we can reconstruct solutions in a DataFrame
+        self.shift_info = []
+        self.shift_usage_vars = []
+        self.tasks_info = []
+        self.task_start_vars = []
+        self.task_end_vars = []
+        self.task_covers_bool = []
         self.task_map = []
 
-        # Build data, then model
+        self.shift_start_blocks = defaultdict(list)  # block -> [shift indices]
+
+        # Prepare data, then build model
         self._prepare_shifts()
         self._prepare_tasks()
         self._build_model()
 
-    # ----------------------------------------------------------------------
-    # Prepare SHIFT data
-    # ----------------------------------------------------------------------
     def _prepare_shifts(self):
+        """Convert shift definitions into coverage arrays and store shift metadata.
+
+        Each shift has a coverage array for all 672 blocks. Also tracks the
+        block(s) at which the shift starts for handover logic.
         """
-        For each row in shifts_df, build a coverage array for the entire week.
-        We also store the 'max_nurses' directly from the DataFrame.
-        """
-        day_cols = [
-            "monday", "tuesday", "wednesday", 
-            "thursday", "friday", "saturday", "sunday"
-        ]
+        day_cols = ["monday", "tuesday", "wednesday",
+                    "thursday", "friday", "saturday", "sunday"]
 
         for idx, row in self.shifts_df.iterrows():
-            shift_name   = row["name"] 
-            max_nurses   = int(row["max_nurses"])  # Use the shift-specific max
+            shift_name   = row["name"]
+            max_nurses   = int(row["max_nurses"])
             start_str    = row["start"]
             end_str      = row["end"]
             brk_str      = row["break"]
@@ -142,15 +216,14 @@ class OptimalNurseSchedulerCP:
 
             for day_index, active in enumerate(day_flags):
                 if not active:
-                    continue  # if the shift isn't active on that day, skip
+                    continue  # skip if shift isn't active on that day
 
                 day_offset = day_index * 1440
 
-                # Parse start time
+                # parse start/end times
                 s_h, s_m = map(int, start_str.split(':'))
                 start_min = day_offset + s_h * 60 + s_m
 
-                # Parse end time
                 e_h, e_m = map(int, end_str.split(':'))
                 if (e_h * 60 + e_m) < (s_h * 60 + s_m):
                     # crosses midnight
@@ -158,24 +231,27 @@ class OptimalNurseSchedulerCP:
                 else:
                     end_min = day_offset + e_h * 60 + e_m
 
-                # Parse break time
+                # parse break
                 bh, bm = map(int, brk_str.split(':'))
-                break_start = day_offset + bh*60 + bm
-                # if break_start is before shift start, roll over to next day
+                break_start = day_offset + bh * 60 + bm
                 if break_start < start_min:
                     break_start += 1440
                 break_end = break_start + brk_dur
-                # clamp break if it exceeds shift bounds
+                # clamp break if it exceeds shift boundaries
                 if break_start < start_min:
                     break_start = start_min
                 if break_end > end_min:
                     break_end = end_min
 
-                # Mark coverage
+                # build coverage
                 add_coverage_blocks(coverage_arr, start_min, end_min)
                 remove_coverage_blocks(coverage_arr, break_start, break_end)
 
-            # Convert weight to an integer scale
+                # record which block this shift starts at (for the handover logic)
+                start_block = minute_to_block(start_min)
+                self.shift_start_blocks[start_block].append(idx)
+
+            # convert weight to integer scale
             weight_scaled = int(round(raw_weight * 100))
             length_blocks = sum(coverage_arr)
 
@@ -187,19 +263,10 @@ class OptimalNurseSchedulerCP:
                 "max_nurses": max_nurses
             })
 
-    # ----------------------------------------------------------------------
-    # Prepare TASK data
-    # ----------------------------------------------------------------------
     def _prepare_tasks(self):
-        """
-        For each day the task is active, we create one entry in tasks_info
-        with earliest_block, latest_block, etc. Also record (row_idx, day_index)
-        for reconstructing the final solution.
-        """
-        day_cols = [
-            "monday", "tuesday", "wednesday", 
-            "thursday", "friday", "saturday", "sunday"
-        ]
+        """Expand each task definition to day-specific subtasks and store feasible blocks."""
+        day_cols = ["monday", "tuesday", "wednesday",
+                    "thursday", "friday", "saturday", "sunday"]
 
         for idx, row in self.tasks_df.iterrows():
             task_name  = row["task"]
@@ -212,28 +279,23 @@ class OptimalNurseSchedulerCP:
 
             for day_index, active in enumerate(day_flags):
                 if not active:
-                    continue  # skip if task is not active on that day
+                    continue  # skip if task isn't active this day
 
                 day_offset = day_index * 1440
 
-                # Parse earliest time
                 s_h, s_m = map(int, start_str.split(':'))
                 earliest_min = day_offset + s_h * 60 + s_m
 
-                # Parse latest time
                 e_h, e_m = map(int, end_str.split(':'))
                 latest_min = day_offset + e_h * 60 + e_m
-
-                # If end < start, assume it crosses midnight => + Minutes in 1 day
                 if latest_min < earliest_min:
+                    # crosses midnight
                     latest_min += 24*60
 
                 duration_blocks = duration // TIME_GRAN
                 earliest_block  = earliest_min // TIME_GRAN
                 latest_block    = latest_min // TIME_GRAN
-
-                # Wrap blocks explicitly to handle tasks crossing sunday midnight
-                latest_block %= N_BLOCKS
+                latest_block %= N_BLOCKS  # wrap if crossing Sunday->Monday
 
                 self.tasks_info.append({
                     "task_name": task_name,
@@ -243,49 +305,42 @@ class OptimalNurseSchedulerCP:
                     "required_nurses": required
                 })
 
-                # Link this subtask back to the original tasks_df row
+                # link the subtask back to the original tasks_df
                 self.task_map.append((idx, day_index))
 
-    # ----------------------------------------------------------------------
-    # Build the model
-    # ----------------------------------------------------------------------
     def _build_model(self):
-        """
-        Build the CP-SAT model:
-          - Create usage variables for each shift, bounded by each shift's 'max_nurses'.
-          - Create interval and coverage boolean variables for each task.
-          - Impose coverage constraints.
-          - Define objective to minimize total cost.
-        """
+        """Construct the CP-SAT model with coverage, handover logic, and objective.
 
-        # Create SHIFT usage variables, each bounded by shift_info["max_nurses"]
+        The key constraints:
+        - Each shift has an integer variable for usage (0..max_nurses).
+        - Each task has a start block var and coverage booleans reified.
+        - Coverage in each block must meet: 
+            (sum of shift usage active in b) 
+            - (newly started nurses in b)
+            - (1 nurse if any started in b)
+          >= max( sum_of_task_demands(b), min_nurses_anytime ).
+        - Objective: minimize sum( usage_s * coverage_length_s * weight_s ).
+        """
+        # 1) SHIFT usage variables
         for s_idx, sh in enumerate(self.shift_info):
             max_usage = sh["max_nurses"]
-            var = self.model.NewIntVar(0, max_usage, f"shift_{s_idx}_usage")
-            self.shift_usage_vars.append(var)
+            usage_var = self.model.NewIntVar(0, max_usage, f"shift_{s_idx}_usage")
+            self.shift_usage_vars.append(usage_var)
 
-        # Create TASK variables: start, end, interval, coverage booleans
+        # 2) TASK variables: start, end, coverage booleans
         for i, t in enumerate(self.tasks_info):
             e_b = t["earliest_block"]
             l_b = t["latest_block"]
             d_b = t["duration_blocks"]
 
-            # Start var
             start_var = self.model.NewIntVar(e_b, l_b, f"task_{i}_start")
-            self.task_start_vars.append(start_var)
-
-            # End var
-            end_var = self.model.NewIntVar(e_b + d_b, l_b + d_b, f"task_{i}_end")
-            self.task_end_vars.append(end_var)
-
-            # Link start and end: end_var == start_var + duration
+            end_var   = self.model.NewIntVar(e_b + d_b, l_b + d_b, f"task_{i}_end")
+            # link end_var == start_var + d_b
             self.model.Add(end_var == start_var + d_b)
 
-            # Interval var can be added to easily add complex constraints
-            # interval_var = self.model.NewIntervalVar(start_var, d_b, end_var, f"task_{i}_interval")
-            # self.task_intervals.append(interval_var)
+            self.task_start_vars.append(start_var)
+            self.task_end_vars.append(end_var)
 
-            # Build coverage booleans
             covers_b = {}
             for b in range(e_b, l_b + d_b):
                 if 0 <= b < N_BLOCKS:
@@ -293,45 +348,93 @@ class OptimalNurseSchedulerCP:
                     covers_b[b] = boolvar
             self.task_covers_bool.append(covers_b)
 
-        # Reification: covers_b[b] <=> start_var <= b < (start_var + d_b)
+        # 2a) Reify coverage booleans:
+        #     covers[i][b] <=> (start_var[i] <= b < start_var[i] + duration)
         for i, t in enumerate(self.tasks_info):
             d_b = t["duration_blocks"]
             startv = self.task_start_vars[i]
-            covers_dict = self.task_covers_bool[i]
-            for b, boolvar in covers_dict.items():
-                aux1 = self.model.NewBoolVar(f"aux1_{i}_{b}")
-                aux2 = self.model.NewBoolVar(f"aux2_{i}_{b}")
+            for b, boolvar in self.task_covers_bool[i].items():
+                aux1 = self.model.NewBoolVar(f"aux1_{i}_{b}")  # startv <= b
+                aux2 = self.model.NewBoolVar(f"aux2_{i}_{b}")  # b < startv + d_b
 
-                # aux1 => (startv <= b)
                 self.model.Add(startv <= b).OnlyEnforceIf(aux1)
                 self.model.Add(startv > b).OnlyEnforceIf(aux1.Not())
 
-                # aux2 => (b < startv + d_b)
                 self.model.Add(b < startv + d_b).OnlyEnforceIf(aux2)
                 self.model.Add(b >= startv + d_b).OnlyEnforceIf(aux2.Not())
 
-                # boolvar = aux1 AND aux2
                 self.model.AddBoolAnd([aux1, aux2]).OnlyEnforceIf(boolvar)
                 self.model.AddBoolOr([aux1.Not(), aux2.Not()]).OnlyEnforceIf(boolvar.Not())
 
-        # Coverage constraints: sum(shift_usage * coverage) >= sum(task demands) per block
+        # 3) HANDOVER LOGIC:
+        #    starts_at[b] = sum( shift_usage[s] for s in shift_start_blocks[b] )
+        #    handover[b]  = 1 if starts_at[b] >= 1 else 0
+        max_possible_usage_per_block = [0]*N_BLOCKS
         for b in range(N_BLOCKS):
-            lhs_terms = []
+            if b in self.shift_start_blocks:
+                max_possible_usage_per_block[b] = sum(
+                    self.shift_info[s]["max_nurses"] for s in self.shift_start_blocks[b]
+                )
+
+        # build the starts_at[b] expressions
+        starts_at = [None]*N_BLOCKS
+        for b in range(N_BLOCKS):
+            if b in self.shift_start_blocks:
+                starts_at[b] = cp_model.LinearExpr.Sum(
+                    [self.shift_usage_vars[s] for s in self.shift_start_blocks[b]]
+                )
+            else:
+                starts_at[b] = 0
+
+        # create the binary handover variable for each block
+        h = []
+        for b in range(N_BLOCKS):
+            hb = self.model.NewBoolVar(f"handover_{b}")
+            h.append(hb)
+            M = max_possible_usage_per_block[b]
+            if M > 0:
+                # if sum usage >= 1 => h[b] = 1
+                self.model.Add(starts_at[b] <= M * hb)
+                self.model.Add(starts_at[b] >= hb)
+            else:
+                # no shift can start at b => h[b] = 0
+                self.model.Add(hb == 0)
+
+        # 4) COVERAGE CONSTRAINTS:
+        #    effective_coverage = sum_of_active_usage - starts_at[b] - h[b]
+        #    must be >= sum_of_tasks(b), AND >= min_nurses_anytime.
+        for b in range(N_BLOCKS):
+            coverage_terms = []
             for s_idx, sh in enumerate(self.shift_info):
                 if sh["coverage"][b] > 0:
-                    lhs_terms.append(self.shift_usage_vars[s_idx] * sh["coverage"][b])
+                    coverage_terms.append(self.shift_usage_vars[s_idx])
 
-            rhs_terms = []
+            # tasks demand in block b
+            task_demands = []
             for i, t in enumerate(self.tasks_info):
                 if b in self.task_covers_bool[i]:
                     req = t["required_nurses"]
                     boolvar = self.task_covers_bool[i][b]
-                    rhs_terms.append(req * boolvar)
+                    task_demands.append(req * boolvar)
 
-            if lhs_terms or rhs_terms:
-                self.model.Add(sum(lhs_terms) >= sum(rhs_terms))
+            # Build the effective coverage expression
+            effective_coverage = (
+                cp_model.LinearExpr.Sum(coverage_terms)
+                - starts_at[b]   # newly started nurses are busy
+                - h[b]           # exactly 1 nurse must handle handover if any start
+            )
 
-        # Objective: minimize sum(shift usage * length_blocks * weight_scaled)
+            # tasks sum
+            demands_expr = cp_model.LinearExpr.Sum(task_demands)
+
+            # coverage >= tasks demand
+            self.model.Add(effective_coverage >= demands_expr)
+            # coverage >= global min nurses, if any
+            if self.min_nurses_anytime > 0:
+                self.model.Add(effective_coverage >= self.min_nurses_anytime)
+
+        # 5) OBJECTIVE: Minimize total cost
+        #    cost = sum( usage_s * (shift length in blocks) * scaled_weight_s )
         cost_terms = []
         for s_idx, sh in enumerate(self.shift_info):
             usage_var = self.shift_usage_vars[s_idx]
@@ -339,78 +442,87 @@ class OptimalNurseSchedulerCP:
             w_scaled = sh["weight_scaled"]
             cost_terms.append(usage_var * blocks_count * w_scaled)
 
-        self.model.Minimize(sum(cost_terms))
+        self.model.Minimize(cp_model.LinearExpr.Sum(cost_terms))
 
-    # ----------------------------------------------------------------------
-    # Solve
-    # ----------------------------------------------------------------------
     def solve(self):
-        """
-        Solve the model. Return a tuple:
-            (total_cost, tasks_solution_df, shifts_solution_df).
+        """Solve the model within the specified time limit.
 
-        - total_cost (float): the final cost of the solution.
-        - tasks_solution_df (DataFrame): one row per day-specific subtask,
-          with columns including 'solution_start' in HH:MM format.
-        - shifts_solution_df (DataFrame): the original shifts_df plus a 'usage' column.
+        Returns:
+            tuple:
+                total_cost (float):
+                    The final objective cost after scaling down by 100.
+                tasks_solution_df (pd.DataFrame):
+                    A row per day-specific subtask, indicating the chosen start time, etc.
+                shifts_solution_df (pd.DataFrame):
+                    The original shifts_df plus a 'usage' column with solution usage.
+                intermediate_solutions (list of (float, float)):
+                    A list of tuples (objective_cost, time_elapsed_seconds) for each
+                    intermediate solution found during the search.
         """
         solver = cp_model.CpSolver()
-        # Optional solver parameters
-        solver.parameters.num_search_workers = 8
-        solver.parameters.max_time_in_seconds = 40
 
-        status = solver.Solve(self.model)
+        # Set parallel workers (optional) and maximum solve time
+        solver.parameters.num_search_workers = 8
+        solver.parameters.max_time_in_seconds = self.max_solve_time  ### NEW
+
+        # Create an intermediate solution callback
+        start_time = time.time()
+        solution_callback = IntermediateSolutionCallback(start_time)
+
+        # Solve with callback to capture intermediate solutions
+        status = solver.SolveWithSolutionCallback(self.model, solution_callback)
+
+        # If no feasible solution was found
         if status not in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
             print("No solution found.")
-            return (None, None, None)
+            return (None, None, None, [])
 
-        # ---------------------------
-        # Extract solution
-        # ---------------------------
+        # Final cost (scaled) and de-scale it
         total_cost_scaled = solver.ObjectiveValue()
         total_cost = total_cost_scaled / 100.0
 
-        # 1) SHIFT usage solutions
+        # SHIFT usage solution
         usage_values = []
         for s_idx, var in enumerate(self.shift_usage_vars):
-            val = solver.Value(var)
-            usage_values.append(val)
-        # Add usage column to shifts_df
+            usage_values.append(solver.Value(var))
         self.shifts_df["usage"] = usage_values
 
-        # 2) TASKS solution DataFrame (day-specific tasks)
+        # TASKS solution data
         day_specific_records = []
         for i, tinfo in enumerate(self.tasks_info):
-            
-            # Extract the earliest/latest from the stored blocks
+            start_block = solver.Value(self.task_start_vars[i])
             earliest_block = tinfo["earliest_block"]
             latest_block   = tinfo["latest_block"]
-            duration = tinfo["duration_blocks"]
-            earliest_time_str = block_to_timestr(earliest_block)
-            latest_time_str   = block_to_timestr(latest_block)
-            duration = block_to_minute(duration)
-            start_block = solver.Value(self.task_start_vars[i])
+            duration_blocks = tinfo["duration_blocks"]
+
+            earliest_str = block_to_timestr(earliest_block)
+            latest_str   = block_to_timestr(latest_block)
+            duration_min = block_to_minute(duration_blocks)
             solution_start_str = block_to_timestr(start_block)
 
             orig_task_idx, day_index = self.task_map[i]
+
             day_specific_records.append({
                 "original_task_idx": orig_task_idx,
                 "day_index": day_index,
                 "task_name": tinfo["task_name"],
-                "start_window": earliest_time_str,
-                "end_window": latest_time_str,
+                "start_window": earliest_str,
+                "end_window": latest_str,
                 "solution_start": solution_start_str,
-                "duration": duration,
+                "duration_minutes": duration_min,
                 "required_nurses": tinfo["required_nurses"]
             })
 
         tasks_solution_df = pd.DataFrame(day_specific_records)
 
-        # Print some info
-        # print("Solution found!")
-        # print("Total cost:", total_cost)
-        # for s_idx, sh in enumerate(self.shift_info):
-        #     print(f"Shift {s_idx} ({sh['name']}) usage: {usage_values[s_idx]}")
+        # intermediate solutions are stored in solution_callback.solutions
+        intermediate_solutions = [
+            (obj_val, t) for (obj_val, t) in solution_callback.solutions
+        ]
 
-        return (total_cost, tasks_solution_df, self.shifts_df)
+        # Print final solution details
+        print(f"\nFinal solution status: {solver.StatusName(status)}")
+        print(f"Final objective cost = {total_cost:.2f}")
+        print(f"Number of intermediate solutions found: {len(intermediate_solutions)}")
 
+        return (total_cost, tasks_solution_df, self.shifts_df, intermediate_solutions)
