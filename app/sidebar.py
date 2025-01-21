@@ -2,12 +2,14 @@ import streamlit as st
 import os
 
 def global_sidebar():
+    """
+    Create a global sidebar for the app.
 
-    # path = os.path.abspath(__file__)
-    # st.write(path)
+    This sidebar will contain the file uploaders for the shifts and tasks data.
 
-    # image_path = os.path.join(os.path.dirname(__file__), "logo.jpg")
-    # st.sidebar.image(image_path, use_container_width=True)
+    The uploaded files will be stored in the session state.
+
+    """
 
     # Initialize session state variables for files if not present
     if "shifts_uploaded" not in st.session_state:
@@ -29,8 +31,8 @@ def global_sidebar():
             st.session_state.shifts_data = None
     else:
         uploaded_shifts = st.sidebar.file_uploader(
-            "Choose a CSV file for Shifts", 
-            type=["csv"], 
+            "Choose an input file for Shifts", 
+            type=["csv", "xlsx"], 
             key="shifts"
         )
         if uploaded_shifts:
@@ -48,8 +50,8 @@ def global_sidebar():
             st.session_state.tasks_data = None
     else:
         uploaded_tasks = st.sidebar.file_uploader(
-            "Choose a CSV file for Tasks", 
-            type=["csv"], 
+            "Choose an input file for Tasks", 
+            type=["csv", "xlsx"], 
             key="tasks"
         )
         if uploaded_tasks:
