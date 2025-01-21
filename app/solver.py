@@ -1,6 +1,6 @@
 import streamlit as st
 from sidebar import global_sidebar
-from utils import solver_combined, InputParser
+from utils import solver_combined, InputParser, verify_solution
 import pandas as pd
 import base64
 
@@ -55,11 +55,20 @@ else:
 
 # Display results if available
 if st.session_state.results is not None:
+
     shifts_result, tasks_result = st.session_state["results"]
     st.subheader("Results")
     st.write("Results are displayed here. These are the results with paramters:")
     st.write(f"Minimum number of nurses: {min_nurses}")
     st.write(f"Max time for the solver: {max_time} seconds")
+
+    # add section to verify the correctness of the results
+    if st.button("Verify Results"):
+        if verify_solution(shifts_result, tasks_result):
+            st.success("Results are correct. ✅")
+        else:
+            st.error("Results are incorrect. ❌")
+
     st.subheader("Shifts schedule")
     st.dataframe(shifts_result)
     st.subheader("Tasks schedule")

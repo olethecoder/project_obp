@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import pandas as pd
 
 def global_sidebar():
     """
@@ -66,8 +67,43 @@ def global_sidebar():
     st.sidebar.divider()
 
     # Button to clear all uploaded files
+    st.sidebar.write('Use this button to clear all uploaded files.')
     if st.sidebar.button("Clear all uploaded"):
         st.session_state.shifts_uploaded = None
         st.session_state.shifts_data = None
         st.session_state.tasks_uploaded = None
         st.session_state.tasks_data = None
+
+    st.sidebar.divider()
+
+    # make buttons do download example files
+
+    # Check if the data directory exists
+
+    data_dir = "data"
+    
+    # Check if the example files exist
+
+    example_shifts = os.path.join(data_dir, "shifts.csv")
+    example_tasks = os.path.join(data_dir, "tasks.csv")
+
+    example_shifts_file = pd.read_csv(example_shifts).to_csv()
+    example_tasks_file = pd.read_csv(example_tasks).to_csv()
+
+
+    if os.path.exists(example_shifts) and os.path.exists(example_tasks):
+        # add download link
+        st.sidebar.write("## Download Example Files")
+        st.sidebar.write("Download the example files to see the expected format.")
+        st.sidebar.download_button(
+            label="Download Example Shifts",
+            data=example_shifts_file,
+            file_name="shifts.csv"
+        )
+        st.sidebar.download_button(
+            label="Download Example Tasks",
+            data=example_tasks_file,
+            file_name="tasks.csv"
+        )
+    else:
+        st.sidebar.error("Example files are missing. Please check the data directory.")

@@ -48,8 +48,8 @@ def display_uploaded_files_old():
 
 def display_uploaded_files():
     st.title("Display Uploaded Files")
-    st.write("todo: also add example format of file")
-
+    st.write("This page displays the uploaded Shifts and Tasks files.")
+    
     # Check if the Shifts file is uploaded in session state
     if st.session_state.get("shifts_data") is not None:
         st.subheader(f"Shifts File: {st.session_state.shifts_uploaded}")
