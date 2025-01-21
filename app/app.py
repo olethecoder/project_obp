@@ -7,9 +7,11 @@ try:
 except ImportError:
     pass
 
+global_sidebar()
+
 st.title("Shift Scheduling Decision Support System")
 
-global_sidebar()
+
 
 # Function to load data from file
 def load_data_from_file(filepath):

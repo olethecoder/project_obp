@@ -5,9 +5,10 @@ import plotly.express as px
 from datetime import datetime, timedelta
 import os
 
+global_sidebar()
+
 current_dir = os.path.dirname(__file__)
 
-global_sidebar()
 
 st.title("Daily Task Overview")
 

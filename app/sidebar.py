@@ -1,8 +1,13 @@
 import streamlit as st
+import os
 
 def global_sidebar():
-    st.sidebar.title("File uploader")
-    st.sidebar.markdown("Please upload both the shifts and tasks files.")
+
+    # path = os.path.abspath(__file__)
+    # st.write(path)
+
+    # image_path = os.path.join(os.path.dirname(__file__), "logo.jpg")
+    # st.sidebar.image(image_path, use_container_width=True)
 
     # Initialize session state variables for files if not present
     if "shifts_uploaded" not in st.session_state:
