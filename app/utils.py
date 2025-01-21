@@ -14,7 +14,7 @@ def solver_combined(shifts_df: pd.DataFrame, tasks_df: pd.DataFrame, max_time: i
     return [shifts_df_copy, tasks_df_copy]
     """
 
-    time.sleep(0.5)
+    time.sleep(5)
     
     # return two placeholder dataframes
 
