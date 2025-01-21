@@ -32,6 +32,9 @@ if shifts_uploaded and tasks_uploaded:
             shifts_df = parser.parse_input(st.session_state.shifts_data)
             tasks_df = parser.parse_input(st.session_state.tasks_data)
             st.info("Data parsed successfully.")
+        except FileNotFoundError:
+            shifts_df = pd.read_csv(st.session_state.shifts_data)
+            tasks_df = pd.read_csv(st.session_state.tasks_data)
         except Exception as e:
             st.error(f"Error parsing data: {e}")
             st.stop()
