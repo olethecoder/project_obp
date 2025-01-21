@@ -8,14 +8,16 @@ N_BLOCKS = WEEK_MINUTES // TIME_GRAN  # 672 blocks in a week
 def minute_to_block(m):
     return m // TIME_GRAN
 
-def add_coverage_blocks(cover_array, start_min, end_min):
+def add_coverage_blocks(cover_array, start_array, start_min, end_min):
+    s_block = minute_to_block(start_min)
+    start_array[s_block] = 1
     if end_min <= WEEK_MINUTES:
-        s_block = minute_to_block(start_min)
+        
         e_block = max(s_block, minute_to_block(end_min - 1))
         for b in range(s_block, min(e_block + 1, N_BLOCKS)):
             cover_array[b] = 1
     else:
-        s_block = minute_to_block(start_min)
+      
         for b in range(s_block, N_BLOCKS):
             cover_array[b] = 1
         end2 = end_min - WEEK_MINUTES
@@ -50,6 +52,8 @@ class Preprocessor:
         self.task_start_vars = []    # Start block variables for tasks
         self.task_covers_bool = []   # Boolean variables linking tasks to blocks
 
+        self.task_map = []
+
         self._prepare_shifts()
         self._prepare_tasks()
 
@@ -65,9 +69,10 @@ class Preprocessor:
             raw_weight = float(row['weight'])
             # Day flags: active days of the week for this shift template
             day_flags = [int(row[d]) for d in ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']]
-
+            print(day_flags)
             # Initialize coverage array for the entire week for this shift template
             coverage_arr = [0] * 672
+            start_arr = [0] * 672 #CHECK
 
             # Loop over each day of the week for which the shift is active
             for day_index, active in enumerate(day_flags):
@@ -100,7 +105,7 @@ class Preprocessor:
                     break_end = end_min
 
                 # Update coverage array for this day's portion of the shift
-                add_coverage_blocks(coverage_arr, start_min, end_min)
+                add_coverage_blocks(coverage_arr, start_arr, start_min, end_min)
                 remove_coverage_blocks(coverage_arr, break_start, break_end)
 
             weight_scaled = int(round(raw_weight * 100))
@@ -110,7 +115,8 @@ class Preprocessor:
                 "coverage": coverage_arr,
                 "weight_scaled": weight_scaled,
                 "length_blocks": shift_len_blocks,
-                "max_nurses": max_nurses
+                "max_nurses": max_nurses,
+                "starting_blocks": start_arr
             })
 
     def _prepare_tasks(self):
@@ -141,9 +147,11 @@ class Preprocessor:
                 latest_block = latest_min // TIME_GRAN
 
                 self.tasks_info.append({
-                    "name": name,
+                    "task_name": name,
                     "earliest_block": earliest_block,
                     "latest_block": latest_block,
                     "duration_blocks": duration_blocks,
                     "required_nurses": required
                 })
+
+                self.task_map.append((idx, day_index))

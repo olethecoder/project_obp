@@ -2,11 +2,14 @@ from gurobipy import Model, GRB
 import gurobipy as gp
 from input_parser import InputParser
 from Preprocess import Preprocessor
+import pandas as pd
 
 # 1) Parse input
 parser = InputParser("data")
 shifts_df = parser.parse_input('shifts_hard')
 tasks_df = parser.parse_input('tasks_easy')
+shifts_solution = shifts_df.copy()
+tasks_solution = tasks_df.copy()
 
 # 2) Preprocess data
 prepped = Preprocessor(
@@ -14,16 +17,38 @@ prepped = Preprocessor(
     tasks_df,
 )
 
-
 ### Sets and Parameters
 shifts = prepped.shift_info
+print(shifts)
 tasks = prepped.tasks_info
+task_map = prepped.task_map
+
+TIME_GRAN = 15
 
 T = range(1, 673) # Time blocks (1 to 672)
 N = range(1, len(tasks)+1) # Tasks 
 S = range(1,len(shifts)+1) # Shifts
+MIN_NURSES_PRESENT = 1
 
-M = 672 # Big M
+# Functions
+
+def block_to_minute(b: int) -> int:
+    """
+    Convert a 15-minute block index back to an absolute minute in the week.
+    """
+    return b * TIME_GRAN
+
+def block_to_timestr(b: int) -> str:
+    """
+    Convert a block index into an HH:MM string (mod 24 hours). 
+    This ignores the day of the week and just returns the 
+    time in 0-23:59 format.
+    """
+    blocks_per_day = 1440 // TIME_GRAN
+    minute_of_day = block_to_minute(b % blocks_per_day)
+    hh = minute_of_day // 60
+    mm = minute_of_day % 60
+    return f"{hh:02d}:{mm:02d}"
 
 # Candidate task blocks
 candidate_blocks = []
@@ -34,7 +59,7 @@ for i in N:
         for k in range(1,tasks[i-1]['duration_blocks']+1):
             candidate_blocks[i-1][j-1].append(tasks[i-1]['earliest_block']+j-1+k-1)
 
-# Candidate task i block j covers time block t
+# BOOLEAN: Candidate task i block j covers time block t
 g = {}
 for i in N:
     for j in range(1,len(candidate_blocks[i-1])+1):
@@ -44,12 +69,18 @@ for i in N:
             else:
                 g[i,j,t] = 0
 
-# Shift j covers time block t
+
+# BOOLEAN: Candidate shift/schedule j covers time block t
 e = {}
 for j in S:
     for t in T:
         e[j,t] = shifts[j-1]['coverage'][t-1]
 
+# BOOLEAN: Candidate shift/schedule j has starting point at time block t
+h = {}
+for j in S:
+    for t in T:
+        h[j,t] = shifts[j-1]['starting_blocks'][t-1]
 
 ### Create model
 model = Model("Nurse Scheduling")
@@ -82,13 +113,14 @@ for i in N:
         model.addConstr(u[i,t] >= gp.quicksum(f[i,j]*g[i,j,t] for j in range(1,len(candidate_blocks[i-1])+1)))
 
 
-# Total number of tasks at time t
+# Total number of tasks at time t (including handover)
 for t in T:
-    model.addConstr(x[t] >= gp.quicksum(u[i,t]*tasks[i-1]["required_nurses"] for i in N))
+    model.addConstr(x[t] >= gp.quicksum(u[i,t]*tasks[i-1]["required_nurses"] for i in N) + gp.quicksum(k[j]*h[j,t] for j in S))
+    #model.addConstr(x[t] >= gp.quicksum(u[i,t]*tasks[i-1]["required_nurses"] for i in N)
 
 # PSEUDO-TASK 1: always 1 person present
 for t in T:
-    model.addConstr(x[t] >= 1)
+    model.addConstr(x[t] >= MIN_NURSES_PRESENT)
 
 # # PSEUDO-TASK 2: handover at first block of each shift
 # for j in S:
@@ -109,21 +141,49 @@ for t in T:
     model.addConstr(n[t]>=x[t])
 
 # Solve
+#model.setParam('TimeLimit', 5)
 model.optimize()
 
+#if model.status == GRB.TIME_LIMIT:
 if model.status == GRB.OPTIMAL:
-    print("\nOptimal Schedule:")
-    for i in N:
-        print(f"Task {i} starts at time {int(s[i].x)}")
-        active_blocks = [t for t in T if y[i, t].x > 0.5]
-        print(f"  Active in time blocks: {active_blocks}")
-    
-    # all_vars = model.getVars()
-    # values = model.getAttr("X", all_vars)
-    # names = model.getAttr("VarName", all_vars)
+    usage_values = []
+    for i in S:
+        val = k[i].x
+        usage_values.append(val)
+    shifts_solution["usage"] = usage_values
+    print(shifts_solution)
 
-    # for name, val in zip(names, values):
-    #     print(f"{name} = {val}")
+    day_specific_records = []
+    for i, tinfo in enumerate(tasks):
+        
+        # Extract the earliest/latest from the stored blocks
+        earliest_block = tinfo["earliest_block"]
+        latest_block   = tinfo["latest_block"]
+        duration = tinfo["duration_blocks"]
+        earliest_time_str = block_to_timestr(earliest_block)
+        latest_time_str   = block_to_timestr(latest_block)
+        duration = block_to_minute(duration)
+        start_block = 0
+        for j in range(1,tasks[i]['latest_block']-tasks[i]['earliest_block']+2):
+            if f[i+1,j].x > 0: #CHECK
+                start_block = tasks[i]['earliest_block']+j-1
+        solution_start_str = block_to_timestr(start_block)
+
+        orig_task_idx, day_index = task_map[i]
+        day_specific_records.append({
+            "original_task_idx": orig_task_idx,
+            "day_index": day_index,
+            "task_name": tinfo["task_name"],
+            "start_window": earliest_time_str,
+            "end_window": latest_time_str,
+            "solution_start": solution_start_str,
+            "duration": duration,
+            "required_nurses": tinfo["required_nurses"]
+        })
+
+    tasks_solution = pd.DataFrame(day_specific_records)
+    print(tasks_solution)
+
 
 else:
     print("No optimal solution found.")
