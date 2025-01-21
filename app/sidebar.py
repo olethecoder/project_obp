@@ -11,6 +11,9 @@ def global_sidebar():
 
     """
 
+    if "results" not in st.session_state:
+        st.session_state.results = None
+
     # Initialize session state variables for files if not present
     if "shifts_uploaded" not in st.session_state:
         st.session_state.shifts_uploaded = None
@@ -59,6 +62,8 @@ def global_sidebar():
             st.session_state.tasks_uploaded = uploaded_tasks.name
             st.session_state.tasks_data = uploaded_tasks.getvalue()
             st.sidebar.success(f"Tasks file saved: {uploaded_tasks.name}")
+
+    st.sidebar.divider()
 
     # Button to clear all uploaded files
     if st.sidebar.button("Clear all uploaded"):

@@ -9,13 +9,17 @@ global_sidebar()
 
 current_dir = os.path.dirname(__file__)
 
-
 st.title("Daily Task Overview")
 
 # Construct the path to the CSV file relative to the current file
 csv_path = os.path.join(current_dir, '../data/tasks_output.csv')
 
 uploaded_file = pd.read_csv(csv_path)
+
+if "results" not in st.session_state:
+    shifts_result, tasks_result = st.session_state["results"]
+else:
+    st.error("No results found. The data below is dummy data. Please run the solver first.")
 
 if uploaded_file is not None:
     data = uploaded_file
@@ -72,9 +76,6 @@ if uploaded_file is not None:
     # Show raw data (optional)
     if st.checkbox("Show raw data"):
         st.write(data)
-
-    print(timeline_data['Nurses Required'].dtype)
-    print(timeline_data['Nurses Required'].unique())
 
     st.header("Dataframe_tasks")
     st.dataframe(timeline_data)
