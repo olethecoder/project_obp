@@ -1,59 +1,61 @@
 import streamlit as st
-import os
-
 
 def global_sidebar():
     st.sidebar.title("File uploader")
-    st.sidebar.markdown("Please upload both the shift and task files.")
+    st.sidebar.markdown("Please upload both the shifts and tasks files.")
 
-    # Create temp directory if it doesn't exist
-    temp_dir = 'app/temp'
-    if not os.path.exists(temp_dir):
-        os.makedirs(temp_dir)
+    # Initialize session state variables for files if not present
+    if "shifts_uploaded" not in st.session_state:
+        st.session_state.shifts_uploaded = None
+    if "shifts_data" not in st.session_state:
+        st.session_state.shifts_data = None
 
-    # File upload for file1
-    if "file1_uploaded" not in st.session_state:
-        st.session_state.file1_uploaded = None
+    if "tasks_uploaded" not in st.session_state:
+        st.session_state.tasks_uploaded = None
+    if "tasks_data" not in st.session_state:
+        st.session_state.tasks_data = None
 
-    if st.session_state.file1_uploaded:
-        st.sidebar.text(f"Uploaded: {st.session_state.file1_uploaded}")
-        if st.sidebar.button("Clear File 1"):
-            #remove the file from the temp directory
-            file_path = os.path.join(temp_dir, f"file1_{st.session_state.file1_uploaded}")
-            os.remove(file_path)
-            st.session_state.file1_uploaded = None
+    # Shifts
+    if st.session_state.shifts_uploaded:
+        st.sidebar.text(f"Uploaded: {st.session_state.shifts_uploaded}")
+        if st.sidebar.button("Clear Shifts"):
+            # Clear from session state
+            st.session_state.shifts_uploaded = None
+            st.session_state.shifts_data = None
     else:
-        uploaded_file1 = st.sidebar.file_uploader("Choose a CSV file for File 1", type=['csv'], key='file1')
-        if uploaded_file1:
-            file_path = os.path.join(temp_dir, f"file1_{uploaded_file1.name}")
-            with open(file_path, 'wb') as f:
-                f.write(uploaded_file1.getbuffer())
-            st.session_state.file1_uploaded = uploaded_file1.name
-            st.sidebar.success(f"File 1 saved: {uploaded_file1.name}")
+        uploaded_shifts = st.sidebar.file_uploader(
+            "Choose a CSV file for Shifts", 
+            type=["csv"], 
+            key="shifts"
+        )
+        if uploaded_shifts:
+            # Store file name and file data in session state
+            st.session_state.shifts_uploaded = uploaded_shifts.name
+            st.session_state.shifts_data = uploaded_shifts.getvalue()
+            st.sidebar.success(f"Shifts file saved: {uploaded_shifts.name}")
 
-    # File upload for file2
-    if "file2_uploaded" not in st.session_state:
-        st.session_state.file2_uploaded = None
-
-    if st.session_state.file2_uploaded:
-        st.sidebar.text(f"Uploaded: {st.session_state.file2_uploaded}")
-        if st.sidebar.button("Clear File 2"):
-            #remove the file from the temp directory
-            file_path = os.path.join(temp_dir, f"file2_{st.session_state.file2_uploaded}")
-            os.remove(file_path)
-            st.session_state.file2_uploaded = None
+    # Tasks
+    if st.session_state.tasks_uploaded:
+        st.sidebar.text(f"Uploaded: {st.session_state.tasks_uploaded}")
+        if st.sidebar.button("Clear Tasks"):
+            # Clear from session state
+            st.session_state.tasks_uploaded = None
+            st.session_state.tasks_data = None
     else:
-        uploaded_file2 = st.sidebar.file_uploader("Choose a CSV file for File 2", type=['csv'], key='file2')
-        if uploaded_file2:
-            file_path = os.path.join(temp_dir, f"file2_{uploaded_file2.name}")
-            with open(file_path, 'wb') as f:
-                f.write(uploaded_file2.getbuffer())
-            st.session_state.file2_uploaded = uploaded_file2.name
-            st.sidebar.success(f"File 2 saved: {uploaded_file2.name}")
+        uploaded_tasks = st.sidebar.file_uploader(
+            "Choose a CSV file for Tasks", 
+            type=["csv"], 
+            key="tasks"
+        )
+        if uploaded_tasks:
+            # Store file name and file data in session state
+            st.session_state.tasks_uploaded = uploaded_tasks.name
+            st.session_state.tasks_data = uploaded_tasks.getvalue()
+            st.sidebar.success(f"Tasks file saved: {uploaded_tasks.name}")
 
-    # create reset button to clear all uploaded files
-
-    if st.sidebar.button("clear all uploaded"):
-        for file_name in os.listdir(temp_dir):
-            file_path = os.path.join(temp_dir, file_name)
-            os.remove(file_path)
+    # Button to clear all uploaded files
+    if st.sidebar.button("Clear all uploaded"):
+        st.session_state.shifts_uploaded = None
+        st.session_state.shifts_data = None
+        st.session_state.tasks_uploaded = None
+        st.session_state.tasks_data = None
