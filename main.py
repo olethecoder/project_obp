@@ -1,25 +1,24 @@
 from input_parser import InputParser
-from solver import OptimalNurseScheduler
+from solver import OptimalNurseSchedulerCP
 
 def main():
     # import data
 
     # parse input
-    shifts = InputParser.parse_input('data/shifts.csv')
-    tasks = InputParser.parse_input('data/tasks.csv')
     parser = InputParser("data")
     shifts = parser.parse_input("shifts_hard")
     tasks = parser.parse_input("tasks_hard")
     
-    # 2) Instantiate solver
-    solver = OptimalNurseScheduler(
-        shifts, 
-        tasks,
-        max_nurses_per_shift = 100
-    )
+    # Example usage
+    scheduler = OptimalNurseSchedulerCP(shifts, tasks)
+    total_cost, tasks_solution_df, shifts_solution_df = scheduler.solve()
 
-    # 3) Solve
-    solver.solve()
+    print("Total cost is:", total_cost)
+    print("\nAugmented tasks DataFrame:\n", tasks_solution_df)
+    print("\nAugmented shifts DataFrame:\n", shifts_solution_df)
+
+    tasks_solution_df.to_csv("data/tasks_solution.csv", index=False)
+    shifts_solution_df.to_csv("data/shifts_solution.csv", index=False)
 
     # Dashboard
 
