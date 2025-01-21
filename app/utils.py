@@ -5,7 +5,7 @@ import time
 from io import BytesIO
 
 
-def solver_combined(shifts_df: pd.DataFrame, tasks_df: pd.DataFrame) -> List[pd.DataFrame]:
+def solver_combined(shifts_df: pd.DataFrame, tasks_df: pd.DataFrame, max_time: int, min_nursers: int) -> List[pd.DataFrame]:
     """
     This function takes in the shifts and tasks dataframes and returns the results of the solver.
     # Example of accessing the dataframes
