@@ -6,7 +6,7 @@ class UnitTest():
         super().__init__() 
         print("\nInitializing Unit Test...")
 
-        self.shifts = shifts_df[shifts_df["usage"] != 0]
+        self.shifts = shifts_df[shifts_df["usage"] != 0].copy()
         self.tasks = tasks_df
         self.days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
         self.shifts_coverage = np.zeros((7, 24 * 4), dtype=int)
