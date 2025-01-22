@@ -51,7 +51,7 @@ def main():
         tasks_info=tasks_info,
         task_map=task_map,
         min_nurses_anytime=1,
-        #max_time_in_seconds=30.0,
+        max_time_in_seconds=30.0,
         shifts_df = shifts
     )
     total_cost_gurobi, shifts_solution_gurobi, tasks_solution_gurobi = gurobi_solver.solve()

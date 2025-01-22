@@ -273,7 +273,7 @@ class OptimalNurseSchedulerCP:
                 "start_window": block_to_timestr(earliest_b),
                 "end_window": block_to_timestr(latest_b),
                 "solution_start": block_to_timestr(start_block),
-                "duration_minutes": block_to_minute(dur_b),
+                "duration": block_to_minute(dur_b),
                 "required_nurses": tinfo["required_nurses"]
             }
             task_records.append(record)
