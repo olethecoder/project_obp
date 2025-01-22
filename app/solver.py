@@ -1,6 +1,6 @@
 import streamlit as st
 from sidebar import global_sidebar
-from utils import solver_combined, InputParser, verify_solution, call_cp_solver
+from utils import solver_combined, InputParser, verify_solution
 import pandas as pd
 import base64
 
