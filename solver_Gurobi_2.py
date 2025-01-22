@@ -6,7 +6,7 @@ import pandas as pd
 
 # 1) Parse input
 parser = InputParser("data")
-shifts_df = parser.parse_input('shifts_hard')
+shifts_df = parser.parse_input('shifts_hard_updated')
 tasks_df = parser.parse_input('tasks_easy')
 shifts_solution = shifts_df.copy()
 tasks_solution = tasks_df.copy()
@@ -115,7 +115,7 @@ for i in N:
 
 # Total number of tasks at time t (including handover)
 for t in T:
-    model.addConstr(x[t] >= gp.quicksum(u[i,t]*tasks[i-1]["required_nurses"] for i in N) + gp.quicksum(k[j]*h[j,t] for j in S))
+    model.addConstr(x[t] >= gp.quicksum(u[i,t]*tasks[i-1]["required_nurses"] for i in N) + gp.quicksum(k[j]*h[j,t] for j in S)+1)
     #model.addConstr(x[t] >= gp.quicksum(u[i,t]*tasks[i-1]["required_nurses"] for i in N)
 
 # PSEUDO-TASK 1: always 1 person present
@@ -149,7 +149,7 @@ if model.status == GRB.OPTIMAL:
     usage_values = []
     for i in S:
         val = k[i].x
-        usage_values.append(val)
+        usage_values.append(int(val))
     shifts_solution["usage"] = usage_values
     print(shifts_solution)
 
@@ -187,3 +187,7 @@ if model.status == GRB.OPTIMAL:
 
 else:
     print("No optimal solution found.")
+
+
+tasks_solution.to_csv("data/tasks_solution_Ole.csv", index=False)
+shifts_solution.to_csv("data/shifts_solution_Ole.csv", index=False)
