@@ -1,27 +1,52 @@
 from gurobipy import Model, GRB
 import gurobipy as gp
 from input_parser import InputParser
-from Preprocess import Preprocessor
+from Preprocess2 import NurseSchedulingPreprocessor
 import pandas as pd
 
 # 1) Parse input
 parser = InputParser("data")
-shifts_df = parser.parse_input('shifts_hard_updated')
-tasks_df = parser.parse_input('tasks_easy')
+shifts_df = parser.parse_input('shifts_hard')
+tasks_df = parser.parse_input('tasks')
 shifts_solution = shifts_df.copy()
 tasks_solution = tasks_df.copy()
 
 # 2) Preprocess data
-prepped = Preprocessor(
+preprocessor = NurseSchedulingPreprocessor(
     shifts_df, 
     tasks_df,
 )
+preprocessor.process_data()
 
 ### Sets and Parameters
-shifts = prepped.shift_info
-print(shifts)
-tasks = prepped.tasks_info
-task_map = prepped.task_map
+shifts = preprocessor.get_shift_info()
+tasks = preprocessor.get_tasks_info()
+task_map = preprocessor.get_task_map() 
+
+
+########
+
+# from Preprocess import Preprocessor
+# import pandas as pd
+
+# # 1) Parse input
+# parser = InputParser("data")
+# shifts_df = parser.parse_input('shifts_hard')
+# tasks_df = parser.parse_input('tasks')
+# shifts_solution = shifts_df.copy()
+# tasks_solution = tasks_df.copy()
+
+# # 2) Preprocess data
+# prepped = Preprocessor(
+#     shifts_df, 
+#     tasks_df,
+# )
+
+# ### Sets and Parameters
+# shifts = prepped.shift_info
+# print(shifts)
+# tasks = prepped.tasks_info
+# task_map = prepped.task_map
 
 TIME_GRAN = 15
 
@@ -64,7 +89,7 @@ g = {}
 for i in N:
     for j in range(1,len(candidate_blocks[i-1])+1):
         for t in T:
-            if t in candidate_blocks[i-1][j-1]:
+            if t-1 in candidate_blocks[i-1][j-1]: #########################CHECK
                 g[i,j,t] = 1
             else:
                 g[i,j,t] = 0
@@ -131,6 +156,8 @@ for t in T:
 # Total shift coverage
 for t in T:
     model.addConstr(n[t]<= gp.quicksum(e[j,t]*k[j] for j in S))
+
+#######################CHECK: Combineren?
 
 # Max number of nurses per shift
 for j in S:
