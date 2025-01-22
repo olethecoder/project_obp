@@ -3,6 +3,7 @@ from typing import List
 import os
 import time
 from io import BytesIO
+import random
 
 
 def solver_combined(shifts_df: pd.DataFrame, tasks_df: pd.DataFrame, max_time: int, min_nursers: int) -> List[pd.DataFrame]:
@@ -18,6 +19,7 @@ def solver_combined(shifts_df: pd.DataFrame, tasks_df: pd.DataFrame, max_time: i
     
     # return two placeholder dataframes
 
+    # return the shifts_df dataframe 
     shifts_df_copy = shifts_df.copy()
     tasks_df_copy = tasks_df.copy()
 
