@@ -1,6 +1,6 @@
 import streamlit as st
 from sidebar import global_sidebar
-from utils import solver_combined, InputParser, verify_solution
+from utils import solver_combined, InputParser, verify_solution, call_cp_solver
 import pandas as pd
 import base64
 
@@ -23,10 +23,12 @@ if shifts_uploaded and tasks_uploaded:
 
     max_time = st.number_input("Max Time (seconds)", value=60)
     min_nurses = st.number_input("Minimum Nurses", value=2)
+    solver_to_use = st.selectbox("Solver to use", options=["cp", "gurobi"], placeholder="cp")
 
     parser = InputParser()
 
     if st.button("Generate Schedule"):
+        st.session_state.results = None
         # Parse data
         try:
             shifts_df = parser.parse_input(st.session_state.shifts_data)
@@ -42,12 +44,13 @@ if shifts_uploaded and tasks_uploaded:
         # Solve
         with st.spinner("Solving..."):
             try:
-                shifts_results, tasks_results = solver_combined(shifts_df, tasks_df, min_nurses, max_time)
-                st.session_state["results"] = [shifts_results, tasks_results]
+                # shifts_results, tasks_results, cost, __ = solver_combined(shifts_df, tasks_df, min_nurses, max_time, solver=solver_to_use)
+                shifts_results, tasks_results, cost_result, __ = solver_combined(shifts_df, tasks_df, max_time, min_nurses, solver_to_use)
+                st.session_state["results"] = [shifts_results, tasks_results, cost_result]
+            except NotImplementedError as e:
+                st.error(f"Solver \"{solver_to_use}\" not implemented. Please select another solver.")
             except Exception as e:
-                st.error(f"An error occurred during solving: {e}")
-                # Fallback, just in case
-                st.session_state["results"] = [pd.DataFrame(), pd.DataFrame()]
+                st.error(f"An error occurred during solving: {e}. Please refresh the page and try again.")
 else:
     st.info("Please upload both Shifts and Tasks files to enable the solver.")
 
@@ -56,11 +59,15 @@ else:
 # Display results if available
 if st.session_state.results is not None:
 
-    shifts_result, tasks_result = st.session_state["results"]
+    shifts_result, tasks_result, cost_result = st.session_state["results"]
     st.subheader("Results")
-    st.write("Results are displayed here. These are the results with paramters:")
+    st.write("**Results are displayed here. These are the results with the parameters:**")
     st.write(f"Minimum number of nurses: {min_nurses}")
     st.write(f"Max time for the solver: {max_time} seconds")
+    st.write(f"Solver used: {solver_to_use}")
+    st.write(f"Total cost: {cost_result}")
+
+    st.write("The total cost is the product of the number of 15-minute blocks scheduled, the number of nurses scheduled, and the weight of the scheduled nurse")
 
     # add section to verify the correctness of the results
     if st.button("Verify Results"):
