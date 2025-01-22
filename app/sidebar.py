@@ -33,6 +33,7 @@ def global_sidebar():
             # Clear from session state
             st.session_state.shifts_uploaded = None
             st.session_state.shifts_data = None
+            st.session_state.results = None
     else:
         uploaded_shifts = st.sidebar.file_uploader(
             "Choose an input file for Shifts", 
@@ -52,6 +53,7 @@ def global_sidebar():
             # Clear from session state
             st.session_state.tasks_uploaded = None
             st.session_state.tasks_data = None
+            st.session_state.results = None
     else:
         uploaded_tasks = st.sidebar.file_uploader(
             "Choose an input file for Tasks", 
@@ -73,6 +75,7 @@ def global_sidebar():
         st.session_state.shifts_data = None
         st.session_state.tasks_uploaded = None
         st.session_state.tasks_data = None
+        st.session_state.results = None
 
     st.sidebar.divider()
 
