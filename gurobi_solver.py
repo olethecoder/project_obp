@@ -27,8 +27,9 @@ class GurobiNurseSolver:
         shift_info,
         tasks_info,
         task_map,
+        shifts_df,
         min_nurses_anytime=1,
-        max_time_in_seconds=60.0,
+        max_time_in_seconds=1e10,
     ):
         """Constructor for the GurobiNurseSolver.
 
@@ -43,6 +44,7 @@ class GurobiNurseSolver:
         self.tasks_info = tasks_info
         self.task_map = task_map
         self.min_nurses_anytime = min_nurses_anytime
+      
 
         # Create the Gurobi model
         self.model = gp.Model("NurseScheduling_Gurobi")
@@ -50,6 +52,7 @@ class GurobiNurseSolver:
 
         # We'll store the final solution here
         self.usage_values = []
+        self.shifts_solution_df = shifts_df.copy()
         self.tasks_solution_df = pd.DataFrame()
 
         # Internal sets
@@ -227,14 +230,11 @@ class GurobiNurseSolver:
             return (None, None)
 
         # SHIFT usage solution
-        self.usage_values = [self.k[j].X for j in self.S]
+        self.usage_values = [int(self.k[j].X) for j in self.S]
 
-        # Build a DataFrame for the shifts solution
-        shift_names = [self.shift_info[j - 1]["name"] for j in self.S]
-        shifts_solution_df = pd.DataFrame({
-            "name": shift_names,
-            "usage": self.usage_values,
-        })
+        # Alter DataFrame for the shifts solution
+        self.shifts_solution_df['usage'] = self.usage_values
+        
 
         # Build a DataFrame for tasks
         day_specific_records = []
@@ -278,13 +278,13 @@ class GurobiNurseSolver:
         else:
             print("Feasible Gurobi solution (not guaranteed optimal).")
 
-        return (shifts_solution_df, tasks_solution_df)
+        return (self.model.ObjVal,self.shifts_solution_df, tasks_solution_df)
 
     def get_solution(self):
         """Get the final solution dataframes if solve() was successful.
 
         Returns:
-            (shifts_solution_df, tasks_solution_df)
+            (self.shifts_solution_df, self.tasks_solution_df)
         """
         # This presupposes we have solved and stored them as instance variables
         # but for clarity we just re-run solve or store them in solve().
