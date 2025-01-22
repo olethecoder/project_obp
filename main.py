@@ -12,7 +12,7 @@ def main():
     parser = InputParser("data")
     shifts = parser.parse_input("shifts_hard")
     tasks = parser.parse_input("tasks")
-    
+
     # 2) Preprocess
     preprocessor = NurseSchedulingPreprocessor(shifts, tasks)
     preprocessor.process_data()
@@ -20,7 +20,7 @@ def main():
     shift_info = preprocessor.get_shift_info()
     shift_start_blocks = preprocessor.get_shift_start_blocks()
     tasks_info = preprocessor.get_tasks_info()
-    task_map = preprocessor.get_task_map()  # <--- here's the new map
+    task_map = preprocessor.get_task_map() 
 
     # 3a) Solve with CP solver
     cp_solver = OptimalNurseSchedulerCP(
@@ -28,6 +28,7 @@ def main():
         shift_start_blocks=shift_start_blocks,
         tasks_info=tasks_info,
         task_map=task_map,
+        shifts_df_original=shifts,
         min_nurses_anytime=1,
         max_solve_time=30.0
     )
@@ -36,13 +37,11 @@ def main():
     if total_cost is not None:
         print("\n--- CP Solver Results ---")
         print(f"Total cost: {total_cost:.2f}")
-        print("Shift usages:", shift_usages)
-        print("\nTasks solution:")
-        for rec in task_solution:
-            print(rec)
-        print("\nIntermediate solutions:")
-        for (obj_val, t) in intermediate_solutions:
-            print(f"  cost={obj_val}, time={t:.2f}s")
+        print("Shift usages:\n", shift_usages)
+        print("\nTasks solution:", task_solution)
+        # print("\nIntermediate solutions:")
+        # for (obj_val, t) in intermediate_solutions:
+        #     print(f"  cost={obj_val}, time={t:.2f}s")
     else:
         print("No CP solution found.")
 
