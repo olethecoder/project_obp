@@ -3,6 +3,8 @@ from sidebar import global_sidebar
 from utils import solver_combined, InputParser, verify_solution, call_cp_solver
 import pandas as pd
 import base64
+import threading
+import time
 
 # Load the global sidebar
 global_sidebar()
@@ -29,6 +31,7 @@ if shifts_uploaded and tasks_uploaded:
 
     if st.button("Generate Schedule"):
         st.session_state.results = None
+
         # Parse data
         try:
             shifts_df = parser.parse_input(st.session_state.shifts_data)
@@ -41,16 +44,51 @@ if shifts_uploaded and tasks_uploaded:
             st.error(f"Error parsing data: {e}")
             st.stop()
 
-        # Solve
-        with st.spinner("Solving..."):
+        # -----------------------------
+        # Start solver in background
+        # -----------------------------
+        solver_result = {}  # We'll store the result here
+
+        def run_solver():
             try:
-                # shifts_results, tasks_results, cost, __ = solver_combined(shifts_df, tasks_df, min_nurses, max_time, solver=solver_to_use)
-                shifts_results, tasks_results, cost_result, __ = solver_combined(shifts_df, tasks_df, max_time, min_nurses, solver_to_use)
-                st.session_state["results"] = [shifts_results, tasks_results, cost_result]
-            except NotImplementedError as e:
-                st.error(f"Solver \"{solver_to_use}\" not implemented. Please select another solver.")
+                shifts_results, tasks_results, cost, __ = solver_combined(shifts_df, tasks_df, max_time, min_nurses, solver=solver_to_use)
+                solver_result["results"] = [shifts_results, tasks_results, cost]
             except Exception as e:
-                st.error(f"An error occurred during solving: {e}. Please refresh the page and try again.")
+                st.error(f"Solver error: {e}")
+                st.stop()
+                solver_result["error"] = e
+
+        solver_thread = threading.Thread(target=run_solver)
+        solver_thread.start()
+
+        # -----------------------------
+        # Show a simple progress bar
+        # -----------------------------
+
+        progress_bar = st.progress(0)
+        for i in range(int(max_time)*10):
+            # If the solver is finished, break out early
+            if not solver_thread.is_alive():
+                break
+            # Update progress from 0% to 100% linearly over max_time
+            progress_bar.progress(int((i + 1) / max_time * 100), text='Solving...')
+            time.sleep(0.1)  # Each loop iteration is 1 second
+
+        # Ensure solver thread finishes
+        solver_thread.join()
+        # Clear the progress bar
+        progress_bar.empty()
+
+        # -----------------------------
+        # Check for results or errors
+        # -----------------------------
+        if "error" in solver_result:
+            st.error(f"Solver error: {solver_result['error']}")
+        elif "results" in solver_result:
+            st.session_state["results"] = solver_result["results"]
+            st.success("Solver finished!")
+        else:
+            st.warning("Solver did not finish within the given time.")
 else:
     st.info("Please upload both Shifts and Tasks files to enable the solver.")
 
