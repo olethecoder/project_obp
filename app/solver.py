@@ -79,7 +79,12 @@ if st.session_state.results is not None:
     st.subheader("Shifts schedule")
     st.dataframe(shifts_result)
     st.subheader("Tasks schedule")
-    st.dataframe(tasks_result)
+    selected_day = st.radio(
+    "Please choose the day you want to see the tasks for",
+    [0, 1, 2, 3, 4, 5, 6],
+    horizontal=True  # This parameter requires Streamlit 1.18 or newer
+    )
+    st.dataframe(tasks_result[tasks_result["day_index"] == selected_day])
 
     # make options to download the results as csv files
 
