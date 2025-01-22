@@ -21,7 +21,7 @@ tasks_uploaded = st.session_state.get("tasks_data") is not None
 if shifts_uploaded and tasks_uploaded:
     st.info("Both Shifts and Tasks files are uploaded. You can now generate the schedule.")
 
-    max_time = st.number_input("Max Time (seconds)", value=60)
+    max_time = st.number_input("Max Time (seconds)", value=30)
     min_nurses = st.number_input("Minimum Nurses", value=2)
     solver_to_use = st.selectbox("Solver to use", options=["cp", "gurobi"], placeholder="cp")
 
