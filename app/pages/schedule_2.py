@@ -1,7 +1,7 @@
 import streamlit as st
 from sidebar import global_sidebar
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 import plotly.express as px
 
 global_sidebar()
@@ -19,51 +19,72 @@ if st.session_state.results is not None:
     data = tasks_result
     
     data['solution_start'] = pd.to_datetime(data['solution_start'], format='%H:%M').dt.time
-    
-    # Add a new column for the actual end time
-    data['end_time'] = data.apply(
-        lambda row: (
-            datetime.combine(datetime.today(), row['solution_start']) 
-            + timedelta(minutes=row['duration'])
-        ).time(),
+
+    # Define a helper function to clamp the end time to 23:59 *of the same day* if it overflows
+    def clamp_end_time(row):
+        # Convert solution_start to a full datetime object, using "today" (or any single reference date).
+        start_dt = datetime.combine(datetime.today(), row['solution_start'])
+        
+        # Calculate the naive end (start + duration)
+        naive_end_dt = start_dt + timedelta(minutes=row['duration'])
+        
+        # Create a cutoff at 23:59 on the same date as start_dt
+        cutoff_dt = datetime.combine(start_dt.date(), time(23, 59))
+        
+        # Return whichever is earlier: either naive end or 23:59
+        return min(naive_end_dt, cutoff_dt)
+
+    # Create new columns for start and end as full datetime
+    data['start_dt'] = data.apply(
+        lambda row: datetime.combine(datetime.today(), row['solution_start']),
         axis=1
     )
-    
-    # --------------------
-    # SINGLE DAY SELECTOR
-    # --------------------
+    data['end_dt'] = data.apply(clamp_end_time, axis=1)
+
+    # For debugging or future use
+    data.to_csv('result_df.csv', index=False)
+
+    # -----------------------------------------------------------------------------------
+    # STREAMLIT UI ELEMENTS
+    # -----------------------------------------------------------------------------------
+    st.title("Task Overview")
+
+    # Single day selector
     selected_day = st.radio(
         "Please choose the day you want to see the tasks for",
         ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-        horizontal=True  # This parameter requires Streamlit 1.18 or newer
+        horizontal=True
     )
     day_index = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].index(selected_day)
 
-    
-    # --------------------
-    # TASKS OVERVIEW
-    # --------------------
+    # Filter data by selected day
     filtered_data = data[data["day_index"] == day_index]
-    
+
+    # Build list of tasks for the timeline
     tasks = []
     for _, row in filtered_data.iterrows():
         tasks.append({
             "Task": row['task_name'],
-            "Start": datetime.combine(datetime.today(), row['solution_start']),
-            "End": datetime.combine(datetime.today(), row['end_time']),
+            "Start": row['start_dt'],
+            "End": row['end_dt'],
             "Nurses Required": row['required_nurses']
         })
-    
+
     timeline_data = pd.DataFrame(tasks)
+
+    # Convert Nurses Required to string for color mapping
     timeline_data['Nurses Required'] = timeline_data['Nurses Required'].astype(str)
 
+    # -----------------------------------------------------------------------------------
+    # PLOTLY TIMELINE
+    # -----------------------------------------------------------------------------------
     fig = px.timeline(
         timeline_data,
         x_start="Start",
         x_end="End",
         y="Task",
         color="Nurses Required",
-        title=f"Task Overview for {selected_day.capitalize()}",
+        title=f"Task Overview for {selected_day}",
         labels={"Nurses Required": "Nurses"},
         color_discrete_map={
             "1": "blue",   # Color for tasks requiring 1 nurse
