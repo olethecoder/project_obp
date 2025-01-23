@@ -1,7 +1,7 @@
 from gurobipy import Model, GRB
 import gurobipy as gp
 from input_parser import InputParser
-from Preprocess2 import NurseSchedulingPreprocessor
+from preprocess2 import NurseSchedulingPreprocessor
 import pandas as pd
 
 # 1) Parse input
@@ -111,7 +111,7 @@ for j in S:
 model = Model("Nurse Scheduling")
 
 ### Decision Variables
-x = model.addVars(T, vtype=GRB.CONTINUOUS, name="total_tasks") # (PSEUDO-)INTEGER: Total number of tasks to be covered at time t
+x = model.addVars(T, vtype=GRB.INTEGER, name="total_tasks") # (PSEUDO-)INTEGER: Total number of tasks to be covered at time t
 f = {}
 for i in N:
     for j in range(1,len(candidate_blocks[i-1])+1):
@@ -119,7 +119,7 @@ for i in N:
 u = model.addVars(N,T, vtype=GRB.BINARY, name="active")
 
 k = model.addVars(S, vtype=GRB.INTEGER, name="shift_scheduled")# INTEGER: Number of times shift i is scheduled
-n = model.addVars(T, vtype=GRB.CONTINUOUS, name="total_nurses") # (PSEUDO-)INTEGER: Total number of nurses working at time t
+n = model.addVars(T, vtype=GRB.INTEGER, name="total_nurses") # (PSEUDO-)INTEGER: Total number of nurses working at time t
 
 
 ### Objective Function
