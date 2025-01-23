@@ -6,16 +6,27 @@ using the preprocessed shift and task data from NurseSchedulingPreprocessor,
 including task_map for final solution reconstruction.
 """
 
+import time
 import gurobipy as gp
 from gurobipy import GRB
 import pandas as pd
-
 from preprocess import (
     TIME_GRAN,
     N_BLOCKS,
     block_to_minute,
     block_to_timestr,
 )
+
+class SolutionCallback:
+
+    def __init__(self):
+        self.solutions = []
+
+    def __call__(self, model, where):
+        if where == GRB.Callback.MIPSOL:
+            # Query the objective value of the new solution
+            best_objective = model.cbGet(GRB.Callback.MIPSOL_OBJ)
+            self.solutions.append((best_objective,model.cbGet(GRB.Callback.RUNTIME)))
 
 class GurobiNurseSolver:
     """Builds and solves the nurse scheduling problem in Gurobi,
@@ -25,6 +36,7 @@ class GurobiNurseSolver:
     def __init__(
         self,
         shift_info,
+        starting_blocks,
         tasks_info,
         task_map,
         shifts_df,
@@ -41,6 +53,7 @@ class GurobiNurseSolver:
             max_time_in_seconds (float, optional): Gurobi time limit in seconds. Defaults to 60.0.
         """
         self.shift_info = shift_info
+        self.starting_blocks = starting_blocks
         self.tasks_info = tasks_info
         self.task_map = task_map
         self.min_nurses_anytime = min_nurses_anytime
@@ -68,7 +81,7 @@ class GurobiNurseSolver:
         # e[j, t] = shift coverage
         # h[j, t] = shift start
         self.e = {}
-        self.h = {}
+        # self.h = {}
         for j in self.S:
             coverage_array = self.shift_info[j - 1]["coverage"]
             # For the "start" logic, we assume there's a "starting_blocks" array
@@ -77,17 +90,21 @@ class GurobiNurseSolver:
             # For demonstration, let's assume it stores 'coverage' in coverage_array
             # and 'starting_blocks' in a parallel array:
 
-            starting_blocks = self.shift_info[j - 1].get("starting_blocks", None)
-            if not starting_blocks:
-                # If not stored, we can set them to 0 for now
-                starting_blocks = [0]*N_BLOCKS
+            # starting_blocks = self.shift_info[j - 1].get("starting_blocks", None)
+            # if not starting_blocks:
+            #     # If not stored, we can set them to 0 for now
+            #     starting_blocks = [0]*N_BLOCKS
 
             for t in self.T:
                 self.e[j, t] = coverage_array[t - 1] if (t - 1 < len(coverage_array)) else 0
-                self.h[j, t] = starting_blocks[t - 1] if (t - 1 < len(starting_blocks)) else 0
+                # self.h[j, t] = starting_blocks[t - 1] if (t - 1 < len(starting_blocks)) else 0
+
+        self.h = {}
+        for t in self.T:
+            for j in self.S:
+                self.h[j,t] = 1 if j-1 in self.starting_blocks[t-1] else 0
 
         # Build candidate blocks for tasks
-        # We'll replicate the logic from your original snippet
         self.candidate_blocks = []
         for i in self.N:
             task = self.tasks_info[i - 1]
@@ -223,7 +240,8 @@ class GurobiNurseSolver:
             (shifts_solution_df, tasks_solution_df)
                 or (None, None) if no solution found.
         """
-        self.model.optimize()
+        callback = SolutionCallback()
+        self.model.optimize(callback)
 
         if self.model.status not in [GRB.OPTIMAL, GRB.TIME_LIMIT]:
             print("No feasible or optimal Gurobi solution found.")
@@ -273,12 +291,15 @@ class GurobiNurseSolver:
 
         tasks_solution_df = pd.DataFrame(day_specific_records)
 
+        # Intermediate solutions
+        intermediate_solutions = callback.solutions
+
         if self.model.status == GRB.OPTIMAL:
             print("Optimal Gurobi solution found.")
         else:
             print("Feasible Gurobi solution (not guaranteed optimal).")
 
-        return (self.model.ObjVal,self.shifts_solution_df, tasks_solution_df)
+        return (self.model.ObjVal,self.shifts_solution_df, tasks_solution_df, intermediate_solutions)
 
     def get_solution(self):
         """Get the final solution dataframes if solve() was successful.

@@ -1,6 +1,6 @@
 from input_parser import InputParser
 from cp_solver import OptimalNurseSchedulerCP
-from Preprocess2 import NurseSchedulingPreprocessor
+from preprocess import NurseSchedulingPreprocessor
 from gurobi_solver import GurobiNurseSolver
 
 def main():
@@ -30,7 +30,7 @@ def main():
         task_map=task_map,
         shifts_df_original=shifts,
         min_nurses_anytime=1,
-        max_solve_time=30.0
+        max_solve_time=5.0
     )
     total_cost_CP, shift_usages_CP, task_solution_CP, intermediate_solutions_CP = cp_solver.solve()
 
@@ -48,13 +48,14 @@ def main():
     # 3b) Solve with Gurobi solver
     gurobi_solver = GurobiNurseSolver(
         shift_info=shift_info,
+        starting_blocks=shift_start_blocks,
         tasks_info=tasks_info,
         task_map=task_map,
         min_nurses_anytime=1,
         max_time_in_seconds=30.0,
         shifts_df = shifts
     )
-    total_cost_gurobi, shifts_solution_gurobi, tasks_solution_gurobi = gurobi_solver.solve()
+    total_cost_gurobi, shifts_solution_gurobi, tasks_solution_gurobi, intermediate_solutions_gurobi = gurobi_solver.solve()
     if shifts_solution_gurobi is not None:
         print("\n--- Gurobi Solver Results ---")
         print(f"Total cost: {total_cost_gurobi:.2f}")
