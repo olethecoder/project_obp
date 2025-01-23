@@ -1,7 +1,7 @@
 from gurobipy import Model, GRB
 import gurobipy as gp
 from input_parser import InputParser
-from preprocess2 import NurseSchedulingPreprocessor
+from Preprocess2 import NurseSchedulingPreprocessor
 import pandas as pd
 
 # 1) Parse input

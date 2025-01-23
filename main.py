@@ -1,6 +1,6 @@
 from input_parser import InputParser
 from cp_solver import OptimalNurseSchedulerCP
-from preprocess import NurseSchedulingPreprocessor
+from Preprocess2 import NurseSchedulingPreprocessor
 from gurobi_solver import GurobiNurseSolver
 
 def main():
