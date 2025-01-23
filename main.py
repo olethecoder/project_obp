@@ -2,16 +2,17 @@ from input_parser import InputParser
 from cp_solver import OptimalNurseSchedulerCP
 from preprocess import NurseSchedulingPreprocessor
 from gurobi_solver import GurobiNurseSolver
+import import_data
 
 def main():
     # import data
-
+    import_data.download_sheets()
     # --------------------------------------------------
     # 1) parse data
     # --------------------------------------------------
     parser = InputParser("data")
     shifts = parser.parse_input("shifts_hard")
-    tasks = parser.parse_input("tasks")
+    tasks = parser.parse_input("tasks_100_rog1")
 
     # 2) Preprocess
     preprocessor = NurseSchedulingPreprocessor(shifts, tasks)
@@ -30,7 +31,7 @@ def main():
         task_map=task_map,
         shifts_df_original=shifts,
         min_nurses_anytime=1,
-        max_solve_time=30.0
+        max_solve_time=60.0
     )
     total_cost_CP, shift_usages_CP, task_solution_CP, intermediate_solutions_CP = cp_solver.solve()
 

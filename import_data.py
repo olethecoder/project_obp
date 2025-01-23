@@ -6,10 +6,10 @@ def download_sheets():
 
     shifts = base_url + 'shifts'
     tasks = base_url + 'tasks'
-    shifts_easy = base_url + 'shifts_hard'
-    tasks_easy = base_url + 'tasks_hard'
+    shifts_def = base_url + 'shifts_hard'
+    tasks_def = base_url + 'tasks_100_rog1'
 
-    urls = [shifts, tasks, shifts_easy, tasks_easy]
+    urls = [shifts, tasks, shifts_def, tasks_def]
 
     os.makedirs('data', exist_ok=True)
 
