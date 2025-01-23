@@ -1,5 +1,7 @@
 import pandas as pd
-from solver import OptimalNurseScheduler
+
+from cp_solver import NurseSchedulingSolver
+
 
 def dash_solver(shifts, tasks):
 
