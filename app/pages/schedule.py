@@ -156,7 +156,7 @@ if uploaded_file is not None:
         # Build data for the timeline
         nurse_timeline_data = []
         for i, row in filtered_nurse_df.iterrows():
-            nurse_name = row['name'] if row['name'] else f"Nurse {i+1}"
+            nurse_name = row['name'] if row['name'] else f"Shift {i+1}"
             nurse_timeline_data.append({
                 "Nurse": nurse_name,
                 "Start": datetime.combine(datetime.today(), row['start_dt'].time()),
