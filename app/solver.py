@@ -1,6 +1,7 @@
 import streamlit as st
 from sidebar import global_sidebar
 from utils import solver_combined, InputParser, verify_solution
+from validator import Validator
 import pandas as pd
 import base64
 
@@ -29,18 +30,23 @@ if shifts_uploaded and tasks_uploaded:
 
     if st.button("Generate Schedule"):
         st.session_state.results = None
+        st.session_state.input = None
         # Parse data
         try:
             shifts_df = parser.parse_input(st.session_state.shifts_data)
             tasks_df = parser.parse_input(st.session_state.tasks_data)
             st.info("Data parsed successfully.")
-        except FileNotFoundError:
+        except FileNotFoundError as e:
+            print(f"Error: {e}")
+            print(f"Relying on hardcoded pandas parser")
             shifts_df = pd.read_csv(st.session_state.shifts_data)
             tasks_df = pd.read_csv(st.session_state.tasks_data)
         except Exception as e:
             st.error(f"Error parsing data: {e}")
             st.stop()
-
+        
+        st.session_state.input = [shifts_df, tasks_df]
+        
         # Solve
         with st.spinner("Solving..."):
             try:
@@ -70,21 +76,31 @@ if st.session_state.results is not None:
     st.write("The total cost is the product of the number of 15-minute blocks scheduled, the number of nurses scheduled, and the weight of the scheduled nurse")
 
     # add section to verify the correctness of the results
-    if st.button("Verify Results"):
+    if st.button("Verify Results Fake"):
         if verify_solution(shifts_result, tasks_result):
             st.success("Results are correct. ✅")
         else:
             st.error("Results are incorrect. ❌")
 
+    if st.button("Verify Results Real"):
+        print(f"Type of shifts_result: {type(shifts_result)}")
+        print(f"Type of tasks_result: {type(tasks_result)}")
+        if Validator.validate_schedule(shifts_result, tasks_result):
+            st.success("Results are correct. ✅")
+        else:
+            st.error("Results are incorrect. ❌")
+    
+
     st.subheader("Shifts schedule")
     st.dataframe(shifts_result)
     st.subheader("Tasks schedule")
     selected_day = st.radio(
-    "Please choose the day you want to see the tasks for",
-    [0, 1, 2, 3, 4, 5, 6],
-    horizontal=True  # This parameter requires Streamlit 1.18 or newer
+        "Please choose the day you want to see the tasks for",
+        ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+        horizontal=True  # This parameter requires Streamlit 1.18 or newer
     )
-    st.dataframe(tasks_result[tasks_result["day_index"] == selected_day])
+    day_index = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].index(selected_day)
+    st.dataframe(tasks_result[tasks_result["day_index"] == day_index])
 
     # make options to download the results as csv files
 

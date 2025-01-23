@@ -16,8 +16,8 @@ csv_path = os.path.join(current_dir, '../data/tasks_output.csv')
 
 uploaded_file = pd.read_csv(csv_path)
 
-if "results" not in st.session_state:
-    shifts_result, tasks_result = st.session_state["results"]
+if st.session_state.results is not None:
+    shifts_result, tasks_result, __ = st.session_state["results"]
 else:
     st.error("No results found. The data below is dummy data. Please run the solver first.")
 
