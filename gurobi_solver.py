@@ -113,8 +113,8 @@ class GurobiNurseSolver:
             dur = task["duration_blocks"]
 
             c_blocks_for_i = []
-            # range of possible starts is (lb - eb + 1)
-            for offset in range(0, lb - eb + 2):
+            # range of possible starts is [0,lb - eb]
+            for offset in range(0, lb - eb + 1):
                 actual_start = eb + offset
                 covered_list = [actual_start + k for k in range(dur)]
                 c_blocks_for_i.append(covered_list)
@@ -127,7 +127,7 @@ class GurobiNurseSolver:
             for j_idx in range(c_size):
                 covered_list = self.candidate_blocks[i - 1][j_idx]
                 for t in self.T:
-                    self.g[i, j_idx + 1, t] = 1 if t in covered_list else 0
+                    self.g[i, j_idx + 1, t] = 1 if t-1 in covered_list else 0 ######################CHECK
 
         # Decision variables
         self.f = {}
@@ -157,13 +157,13 @@ class GurobiNurseSolver:
         self.x = {}
         for t in self.T:
             self.x[t] = self.model.addVar(
-                vtype=GRB.CONTINUOUS, name=f"x_{t}"
+                vtype=GRB.INTEGER, name=f"x_{t}"
             )
 
         self.n = {}
         for t in self.T:
             self.n[t] = self.model.addVar(
-                vtype=GRB.CONTINUOUS, name=f"n_{t}"
+                vtype=GRB.INTEGER, name=f"n_{t}"
             )
 
         # Objective
@@ -207,7 +207,7 @@ class GurobiNurseSolver:
                 for j in self.S
             )
             self.model.addConstr(
-                self.x[t] >= sum_task_demand + sum_starts,
+                self.x[t] >= sum_task_demand + sum_starts + 1, # +1, as 1 person is doing the handover
                 name=f"CoverageReq_{t}"
             )
             # also global min coverage
