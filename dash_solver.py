@@ -1,11 +1,12 @@
-
 import pandas as pd
+
 from cp_solver import NurseSchedulingSolver
+
 
 def dash_solver(shifts, tasks):
 
     # 2) Instantiate solver
-    solver = NurseSchedulingSolver(
+    solver = OptimalNurseScheduler(
         shifts, 
         tasks,
         max_nurses_per_shift = 100
