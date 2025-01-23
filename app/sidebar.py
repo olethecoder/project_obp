@@ -2,7 +2,7 @@ import streamlit as st
 import os
 import pandas as pd
 
-def global_sidebar():
+def global_sidebar() -> None:
     """
     Create a global sidebar for the app.
 
