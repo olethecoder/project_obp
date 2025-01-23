@@ -11,7 +11,7 @@ def main():
     # --------------------------------------------------
     parser = InputParser("data")
     shifts = parser.parse_input("shifts_hard")
-    tasks = parser.parse_input("tasks")
+    tasks = parser.parse_input("tasks_hard")
 
     # 2) Preprocess
     preprocessor = NurseSchedulingPreprocessor(shifts, tasks)
@@ -54,7 +54,8 @@ def main():
         max_time_in_seconds=30.0,
         shifts_df = shifts
     )
-    total_cost_gurobi, shifts_solution_gurobi, tasks_solution_gurobi = gurobi_solver.solve()
+    total_cost_gurobi, shifts_solution_gurobi, tasks_solution_gurobi, intermediate_solutions_gurobi = gurobi_solver.solve()
+    
     if shifts_solution_gurobi is not None:
         print("\n--- Gurobi Solver Results ---")
         print(f"Total cost: {total_cost_gurobi:.2f}")
