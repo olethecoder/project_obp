@@ -83,7 +83,7 @@ def global_sidebar() -> None:
 
     # Check if the data directory exists
 
-    data_dir = "data"
+    data_dir = "example_files"
     
     # Check if the example files exist
 
