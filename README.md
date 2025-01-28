@@ -28,11 +28,6 @@ Project OBP is a Streamlit-based application designed to help manage and optimiz
     pip install -r requirements.txt
     ```
 
-3. **Import data from Google Sheets**:
-    ```
-    python import_data.py
-    ```
-
 ## Running the Dashboard
 To start the dashboard, `cd` to the `app` directory: 
 ```
