@@ -120,22 +120,22 @@ class GurobiNurseSolver:
                 c_blocks_for_i.append(covered_list)
             self.candidate_blocks.append(c_blocks_for_i)
 
-        # Build g[i, j_idx, t]
+        # Build g[i, b, t]
         self.g = {}
         for i in self.N:
             c_size = len(self.candidate_blocks[i - 1])
-            for j_idx in range(c_size):
-                covered_list = self.candidate_blocks[i - 1][j_idx]
+            for b in range(c_size):
+                covered_list = self.candidate_blocks[i - 1][b]
                 for t in self.T:
-                    self.g[i, j_idx + 1, t] = 1 if t-1 in covered_list else 0 ######################CHECK
+                    self.g[i, b + 1, t] = 1 if t-1 in covered_list else 0 ######################CHECK
 
         # Decision variables
         self.f = {}
         for i in self.N:
             c_size = len(self.candidate_blocks[i - 1])
-            for j_idx in range(1, c_size + 1):
-                self.f[i, j_idx] = self.model.addVar(
-                    vtype=GRB.BINARY, name=f"f_{i}_{j_idx}"
+            for b in range(1, c_size + 1):
+                self.f[i, b] = self.model.addVar(
+                    vtype=GRB.BINARY, name=f"f_{i}_{b}"
                 )
 
         self.u = {}
@@ -180,7 +180,7 @@ class GurobiNurseSolver:
         for i in self.N:
             c_size = len(self.candidate_blocks[i - 1])
             self.model.addConstr(
-                gp.quicksum(self.f[i, jj] for jj in range(1, c_size + 1)) == 1,
+                gp.quicksum(self.f[i, b] for b in range(1, c_size + 1)) == 1,
                 name=f"OneCandidate_{i}"
             )
 
@@ -190,8 +190,8 @@ class GurobiNurseSolver:
             for t in self.T:
                 self.model.addConstr(
                     self.u[i, t] >= gp.quicksum(
-                        self.f[i, jj] * self.g[i, jj, t]
-                        for jj in range(1, c_size + 1)
+                        self.f[i, b] * self.g[i, b, t]
+                        for b in range(1, c_size + 1)
                     ),
                     name=f"TaskActive_{i}_{t}"
                 )
@@ -219,7 +219,7 @@ class GurobiNurseSolver:
         # 4) coverage from shifts
         for t in self.T:
             self.model.addConstr(
-                self.n[t] <= gp.quicksum(
+                self.n[t] == gp.quicksum( #### CHECK ####
                     self.e[j, t] * self.k[j]
                     for j in self.S
                 ),
@@ -261,9 +261,9 @@ class GurobiNurseSolver:
             # find chosen candidate
             c_size = len(self.candidate_blocks[i - 1])
             chosen_start_block = None
-            for j_idx in range(1, c_size + 1):
-                if self.f[i, j_idx].X > 0.5:
-                    offset = (j_idx - 1)
+            for b in range(1, c_size + 1):
+                if self.f[i, b].X > 0.5:
+                    offset = (b - 1)
                     chosen_start_block = tinfo["earliest_block"] + offset
                     break
 
