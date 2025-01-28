@@ -191,5 +191,7 @@ class Validator():
         all_valid = coverage_valid and window_valid and max_nurses_valid
         if all_valid:
             print("Schedule is valid")
+            return True
         else:
             print("Schedule is invalid")
+            return False

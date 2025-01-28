@@ -2,7 +2,7 @@ import streamlit as st
 import os
 import pandas as pd
 
-def global_sidebar():
+def global_sidebar() -> None:
     """
     Create a global sidebar for the app.
 
@@ -33,6 +33,7 @@ def global_sidebar():
             # Clear from session state
             st.session_state.shifts_uploaded = None
             st.session_state.shifts_data = None
+            st.session_state.results = None
     else:
         uploaded_shifts = st.sidebar.file_uploader(
             "Choose an input file for Shifts", 
@@ -52,6 +53,7 @@ def global_sidebar():
             # Clear from session state
             st.session_state.tasks_uploaded = None
             st.session_state.tasks_data = None
+            st.session_state.results = None
     else:
         uploaded_tasks = st.sidebar.file_uploader(
             "Choose an input file for Tasks", 
@@ -73,6 +75,7 @@ def global_sidebar():
         st.session_state.shifts_data = None
         st.session_state.tasks_uploaded = None
         st.session_state.tasks_data = None
+        st.session_state.results = None
 
     st.sidebar.divider()
 
@@ -84,8 +87,8 @@ def global_sidebar():
     
     # Check if the example files exist
 
-    example_shifts = os.path.join(data_dir, "shifts.csv")
-    example_tasks = os.path.join(data_dir, "tasks.csv")
+    example_shifts = os.path.join(data_dir, "shifts_example.csv")
+    example_tasks = os.path.join(data_dir, "tasks_example.csv")
 
     example_shifts_file = pd.read_csv(example_shifts).to_csv()
     example_tasks_file = pd.read_csv(example_tasks).to_csv()
