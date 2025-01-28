@@ -49,7 +49,7 @@ if shifts_uploaded and tasks_uploaded:
             try:
                 # shifts_results, tasks_results, cost, __ = solver_combined(shifts_df, tasks_df, min_nurses, max_time, solver=solver_to_use)
                 shifts_results, tasks_results, cost_result, __ = solver_combined(shifts_df, tasks_df, max_time, min_nurses, solver_to_use)
-                st.session_state["results"] = [shifts_results, tasks_results, cost_result]
+                st.session_state["results"] = [shifts_results, tasks_results, cost_result, solver_to_use]
             except NotImplementedError as e:
                 st.error(f"Solver \"{solver_to_use}\" not implemented. Please select another solver.")
             except Exception as e:
@@ -63,24 +63,17 @@ if st.session_state.results is not None:
 
     print(st.session_state["results"])
 
-    shifts_result, tasks_result, cost_result = st.session_state["results"]
+    shifts_result, tasks_result, cost_result, solver = st.session_state["results"]
     st.subheader("Results")
     st.write("**Results are displayed here. These are the results with the parameters:**")
     st.write(f"Minimum number of nurses: {min_nurses}")
     st.write(f"Max time for the solver: {max_time} seconds")
-    st.write(f"Solver used: {solver_to_use}")
-    st.write(f"Total cost: {cost_result}")
+    st.write(f"Solver used: {solver}")
+    st.write(f"Total cost: {cost_result:.2f}")
 
     st.write("The total cost is the product of the number of 15-minute blocks scheduled, the number of nurses scheduled, and the weight of the scheduled nurse")
 
-    # add section to verify the correctness of the results
-    if st.button("Verify Results Fake"):
-        if verify_solution(shifts_result, tasks_result):
-            st.success("Results are correct. ✅")
-        else:
-            st.error("Results are incorrect. ❌")
-
-    if st.button("Verify Results Real"):
+    if st.button("Verify Results"):
         print(f"Type of shifts_result: {type(shifts_result)}")
         print(f"Type of tasks_result: {type(tasks_result)}")
         if Validator.validate_schedule(shifts_result, tasks_result):

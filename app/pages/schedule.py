@@ -9,7 +9,7 @@ global_sidebar()
 st.title("Daily Schedule Viewer")
 
 if st.session_state.results is not None:
-    shifts_result, tasks_result, __ = st.session_state["results"]
+    shifts_result, tasks_result, __, __ = st.session_state["results"]
 
         # Single day selector
     selected_day = st.radio(
