@@ -24,19 +24,17 @@ if shifts_uploaded and tasks_uploaded:
     min_nurses = st.number_input("Minimum Nurses", value=2)
     solver_to_use = st.selectbox("Solver to use", options=["cp", "gurobi"], placeholder="cp")
 
-    parser = InputParser()
+    #parser = InputParser()
 
     if st.button("Generate Schedule"):
         st.session_state.results = None
         st.session_state.input = None
         # Parse data
+        # try:
+        #     shifts_df = parser.parse_input(st.session_state.shifts_data)
+        #     tasks_df = parser.parse_input(st.session_state.tasks_data)
+        #     st.info("Data parsed successfully.")
         try:
-            shifts_df = parser.parse_input(st.session_state.shifts_data)
-            tasks_df = parser.parse_input(st.session_state.tasks_data)
-            st.info("Data parsed successfully.")
-        except FileNotFoundError as e:
-            print(f"Error: {e}")
-            print(f"Relying on hardcoded pandas parser")
             shifts_df = pd.read_csv(st.session_state.shifts_data)
             tasks_df = pd.read_csv(st.session_state.tasks_data)
         except Exception as e:
