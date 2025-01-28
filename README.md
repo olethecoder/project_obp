@@ -33,17 +33,15 @@ Project OBP is a Streamlit-based application designed to help manage and optimiz
     python import_data.py
     ```
 
-## Importing Data
-To import data from Google Sheets, run the `import_data.py` script:
-```
-python import_data.py
-```
-This will download the necessary CSV files into the `data` directory.
-
 ## Running the Dashboard
-To start the dashboard, run the following command:
+To start the dashboard, `cd` to the `app` directory: 
 ```
-streamlit run app/app.py
+cd app
+```
+
+the run the dashboard with the command:
+```
+streamlit run main.py
 ```
 This will launch the Streamlit application in your default web browser.
 
