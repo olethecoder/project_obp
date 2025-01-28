@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from sidebar import global_sidebar
+from code.ui.sidebar import global_sidebar
 
 global_sidebar()
 

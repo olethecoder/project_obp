@@ -2,3 +2,4 @@ ortools
 streamlit
 pandas
 gurobipy
+plotly

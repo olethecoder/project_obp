@@ -1,9 +1,8 @@
 import streamlit as st
-from sidebar import global_sidebar
-from utils import solver_combined, InputParser, verify_solution
-from validator import Validator
+from code.ui.sidebar import global_sidebar
+from code.utils.utils import solver_combined, InputParser, verify_solution
+from code.processing.validator import Validator
 import pandas as pd
-import base64
 
 # Load the global sidebar
 global_sidebar()

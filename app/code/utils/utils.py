@@ -1,14 +1,10 @@
 import pandas as pd
 from typing import List
 import os
-import time
 from io import BytesIO
-import random
-from input_parser import InputParser
-from cp_solver import OptimalNurseSchedulerCP
-from preprocess import NurseSchedulingPreprocessor
-from gurobi_solver import GurobiNurseSolver
-
+from code.solvers.cp_solver import OptimalNurseSchedulerCP
+from code.solvers.gurobi_solver import GurobiNurseSolver
+from code.processing.preprocess import NurseSchedulingPreprocessor
 
 
 def solver_combined(shifts_df: pd.DataFrame, tasks_df: pd.DataFrame, max_time: int, min_nursers: int, solver: str) -> List[pd.DataFrame]:
