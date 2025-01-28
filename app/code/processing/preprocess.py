@@ -65,10 +65,10 @@ def add_coverage_blocks(cover_array, start_min, end_min):
         start_min (int): Start minute of coverage (>= 0).
         end_min (int): End minute of coverage (exclusive).
     """
-    if end_min <= WEEK_MINUTES:
+    if end_min < WEEK_MINUTES:
         s_block = minute_to_block(start_min)
-        e_block = max(s_block, minute_to_block(end_min - 1))
-        for b in range(s_block, min(e_block + 1, N_BLOCKS)):
+        e_block = max(s_block, minute_to_block(end_min))
+        for b in range(s_block, min(e_block + 1, N_BLOCKS)): # e_block + 1 to include final block
             cover_array[b] = 1
     else:
         # crosses boundary from Sunday -> Monday
@@ -76,7 +76,7 @@ def add_coverage_blocks(cover_array, start_min, end_min):
         for b in range(s_block, N_BLOCKS):
             cover_array[b] = 1
         end2 = end_min - WEEK_MINUTES
-        e_block2 = minute_to_block(end2 - 1)
+        e_block2 = minute_to_block(end2)
         for b in range(0, min(e_block2 + 1, N_BLOCKS)):
             cover_array[b] = 1
 
@@ -90,9 +90,9 @@ def remove_coverage_blocks(cover_array, start_min, end_min):
         start_min (int): Start minute of the interval (>= 0).
         end_min (int): End minute of the interval (exclusive).
     """
-    if end_min <= WEEK_MINUTES:
+    if end_min < WEEK_MINUTES:
         s_block = minute_to_block(start_min)
-        e_block = max(s_block, minute_to_block(end_min - 1))
+        e_block = max(s_block, minute_to_block(end_min))
         for b in range(s_block, min(e_block + 1, N_BLOCKS)):
             cover_array[b] = 0
     else:
@@ -101,7 +101,7 @@ def remove_coverage_blocks(cover_array, start_min, end_min):
         for b in range(s_block, N_BLOCKS):
             cover_array[b] = 0
         end2 = end_min - WEEK_MINUTES
-        e_block2 = minute_to_block(end2 - 1)
+        e_block2 = minute_to_block(end2)
         for b in range(0, min(e_block2 + 1, N_BLOCKS)):
             cover_array[b] = 0
 

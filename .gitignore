@@ -3,3 +3,4 @@ temp/
 *.pyc
 .devcontainer/
 data_temp/
+venv/
