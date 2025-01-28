@@ -13,8 +13,6 @@ st.write("This is a solver for the nursing scheduling problem. It takes two file
 
 # make a user input that allow the user to input max time for the solver (minutes / seconds format), and the minimum number of nurses that should be working at any given time (integer)
 
-
-
 # Only show 'Generate Schedule' button if both files are uploaded
 shifts_uploaded = st.session_state.get("shifts_data") is not None
 tasks_uploaded = st.session_state.get("tasks_data") is not None
@@ -61,9 +59,10 @@ else:
     st.info("Please upload both Shifts and Tasks files to enable the solver.")
 
     
-
 # Display results if available
 if st.session_state.results is not None:
+
+    print(st.session_state["results"])
 
     shifts_result, tasks_result, cost_result = st.session_state["results"]
     st.subheader("Results")

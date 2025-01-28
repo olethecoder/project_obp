@@ -8,9 +8,6 @@ global_sidebar()
 
 st.title("Daily Schedule Viewer")
 
-if(True):
-    st.session_state.results = [pd.read_csv("shifts_results.csv"), pd.read_csv("tasks_results.csv"), 1]
-
 if st.session_state.results is not None:
     shifts_result, tasks_result, __ = st.session_state["results"]
 

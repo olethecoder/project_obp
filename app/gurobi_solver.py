@@ -6,16 +6,27 @@ using the preprocessed shift and task data from NurseSchedulingPreprocessor,
 including task_map for final solution reconstruction.
 """
 
+import time
 import gurobipy as gp
 from gurobipy import GRB
 import pandas as pd
-
 from preprocess import (
     TIME_GRAN,
     N_BLOCKS,
     block_to_minute,
     block_to_timestr,
 )
+
+class SolutionCallback:
+
+    def __init__(self):
+        self.solutions = []
+
+    def __call__(self, model, where):
+        if where == GRB.Callback.MIPSOL:
+            # Query the objective value of the new solution
+            best_objective = model.cbGet(GRB.Callback.MIPSOL_OBJ)
+            self.solutions.append((best_objective,model.cbGet(GRB.Callback.RUNTIME)))
 
 class GurobiNurseSolver:
     """Builds and solves the nurse scheduling problem in Gurobi,
@@ -25,10 +36,12 @@ class GurobiNurseSolver:
     def __init__(
         self,
         shift_info,
+        starting_blocks,
         tasks_info,
         task_map,
+        shifts_df,
         min_nurses_anytime=1,
-        max_time_in_seconds=60.0,
+        max_time_in_seconds=1e10,
     ):
         """Constructor for the GurobiNurseSolver.
 
@@ -40,9 +53,11 @@ class GurobiNurseSolver:
             max_time_in_seconds (float, optional): Gurobi time limit in seconds. Defaults to 60.0.
         """
         self.shift_info = shift_info
+        self.starting_blocks = starting_blocks
         self.tasks_info = tasks_info
         self.task_map = task_map
         self.min_nurses_anytime = min_nurses_anytime
+      
 
         # Create the Gurobi model
         self.model = gp.Model("NurseScheduling_Gurobi")
@@ -50,6 +65,7 @@ class GurobiNurseSolver:
 
         # We'll store the final solution here
         self.usage_values = []
+        self.shifts_solution_df = shifts_df.copy()
         self.tasks_solution_df = pd.DataFrame()
 
         # Internal sets
@@ -65,7 +81,7 @@ class GurobiNurseSolver:
         # e[j, t] = shift coverage
         # h[j, t] = shift start
         self.e = {}
-        self.h = {}
+        # self.h = {}
         for j in self.S:
             coverage_array = self.shift_info[j - 1]["coverage"]
             # For the "start" logic, we assume there's a "starting_blocks" array
@@ -74,17 +90,21 @@ class GurobiNurseSolver:
             # For demonstration, let's assume it stores 'coverage' in coverage_array
             # and 'starting_blocks' in a parallel array:
 
-            starting_blocks = self.shift_info[j - 1].get("starting_blocks", None)
-            if not starting_blocks:
-                # If not stored, we can set them to 0 for now
-                starting_blocks = [0]*N_BLOCKS
+            # starting_blocks = self.shift_info[j - 1].get("starting_blocks", None)
+            # if not starting_blocks:
+            #     # If not stored, we can set them to 0 for now
+            #     starting_blocks = [0]*N_BLOCKS
 
             for t in self.T:
                 self.e[j, t] = coverage_array[t - 1] if (t - 1 < len(coverage_array)) else 0
-                self.h[j, t] = starting_blocks[t - 1] if (t - 1 < len(starting_blocks)) else 0
+                # self.h[j, t] = starting_blocks[t - 1] if (t - 1 < len(starting_blocks)) else 0
+
+        self.h = {}
+        for t in self.T:
+            for j in self.S:
+                self.h[j,t] = 1 if j-1 in self.starting_blocks[t-1] else 0
 
         # Build candidate blocks for tasks
-        # We'll replicate the logic from your original snippet
         self.candidate_blocks = []
         for i in self.N:
             task = self.tasks_info[i - 1]
@@ -93,8 +113,8 @@ class GurobiNurseSolver:
             dur = task["duration_blocks"]
 
             c_blocks_for_i = []
-            # range of possible starts is (lb - eb + 1)
-            for offset in range(0, lb - eb + 2):
+            # range of possible starts is [0,lb - eb]
+            for offset in range(0, lb - eb + 1):
                 actual_start = eb + offset
                 covered_list = [actual_start + k for k in range(dur)]
                 c_blocks_for_i.append(covered_list)
@@ -107,7 +127,7 @@ class GurobiNurseSolver:
             for j_idx in range(c_size):
                 covered_list = self.candidate_blocks[i - 1][j_idx]
                 for t in self.T:
-                    self.g[i, j_idx + 1, t] = 1 if t in covered_list else 0
+                    self.g[i, j_idx + 1, t] = 1 if t-1 in covered_list else 0 ######################CHECK
 
         # Decision variables
         self.f = {}
@@ -137,13 +157,13 @@ class GurobiNurseSolver:
         self.x = {}
         for t in self.T:
             self.x[t] = self.model.addVar(
-                vtype=GRB.CONTINUOUS, name=f"x_{t}"
+                vtype=GRB.INTEGER, name=f"x_{t}"
             )
 
         self.n = {}
         for t in self.T:
             self.n[t] = self.model.addVar(
-                vtype=GRB.CONTINUOUS, name=f"n_{t}"
+                vtype=GRB.INTEGER, name=f"n_{t}"
             )
 
         # Objective
@@ -187,7 +207,7 @@ class GurobiNurseSolver:
                 for j in self.S
             )
             self.model.addConstr(
-                self.x[t] >= sum_task_demand + sum_starts,
+                self.x[t] >= sum_task_demand + sum_starts + 1, # +1, as 1 person is doing the handover
                 name=f"CoverageReq_{t}"
             )
             # also global min coverage
@@ -220,21 +240,19 @@ class GurobiNurseSolver:
             (shifts_solution_df, tasks_solution_df)
                 or (None, None) if no solution found.
         """
-        self.model.optimize()
+        callback = SolutionCallback()
+        self.model.optimize(callback)
 
         if self.model.status not in [GRB.OPTIMAL, GRB.TIME_LIMIT]:
             print("No feasible or optimal Gurobi solution found.")
             return (None, None)
 
         # SHIFT usage solution
-        self.usage_values = [self.k[j].X for j in self.S]
+        self.usage_values = [int(self.k[j].X) for j in self.S]
 
-        # Build a DataFrame for the shifts solution
-        shift_names = [self.shift_info[j - 1]["name"] for j in self.S]
-        shifts_solution_df = pd.DataFrame({
-            "name": shift_names,
-            "usage": self.usage_values,
-        })
+        # Alter DataFrame for the shifts solution
+        self.shifts_solution_df['usage'] = self.usage_values
+        
 
         # Build a DataFrame for tasks
         day_specific_records = []
@@ -273,18 +291,21 @@ class GurobiNurseSolver:
 
         tasks_solution_df = pd.DataFrame(day_specific_records)
 
+        # Intermediate solutions
+        intermediate_solutions = callback.solutions
+
         if self.model.status == GRB.OPTIMAL:
             print("Optimal Gurobi solution found.")
         else:
             print("Feasible Gurobi solution (not guaranteed optimal).")
 
-        return (shifts_solution_df, tasks_solution_df)
+        return (self.model.ObjVal,self.shifts_solution_df, tasks_solution_df, intermediate_solutions)
 
     def get_solution(self):
         """Get the final solution dataframes if solve() was successful.
 
         Returns:
-            (shifts_solution_df, tasks_solution_df)
+            (self.shifts_solution_df, self.tasks_solution_df)
         """
         # This presupposes we have solved and stored them as instance variables
         # but for clarity we just re-run solve or store them in solve().

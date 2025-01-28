@@ -23,7 +23,8 @@ def solver_combined(shifts_df: pd.DataFrame, tasks_df: pd.DataFrame, max_time: i
     if solver == "cp":
         return call_cp_solver(shifts_df, tasks_df, max_time, min_nursers)
     else:
-        raise NotImplementedError("Only CP solver is implemented for now.")
+        return call_gurobi_solver(shifts_df, tasks_df, max_time, min_nursers)
+        #raise NotImplementedError("Only CP solver is implemented for now.")
 
     # time.sleep(5)
     
@@ -34,7 +35,30 @@ def solver_combined(shifts_df: pd.DataFrame, tasks_df: pd.DataFrame, max_time: i
     # tasks_df_copy = tasks_df.copy()
 
 
+def call_gurobi_solver(shifts_df: pd.DataFrame, tasks_df: pd.DataFrame, max_time: int, min_nursers: int):
+    
+    # 2) Preprocess
+    preprocessor = NurseSchedulingPreprocessor(shifts_df, tasks_df)
+    preprocessor.process_data()
 
+    shift_info = preprocessor.get_shift_info()
+    shift_start_blocks = preprocessor.get_shift_start_blocks()
+    tasks_info = preprocessor.get_tasks_info()
+    task_map = preprocessor.get_task_map() 
+    
+    gurobi_solver = GurobiNurseSolver(
+        shift_info=shift_info,
+        starting_blocks=shift_start_blocks,
+        tasks_info=tasks_info,
+        task_map=task_map,
+        min_nurses_anytime=1,
+        max_time_in_seconds=30.0,
+        shifts_df = shifts_df
+    )
+
+    total_cost_gurobi, shifts_solution_gurobi, tasks_solution_gurobi, intermediate_solutions_gurobi = gurobi_solver.solve()
+
+    return shifts_solution_gurobi, tasks_solution_gurobi, total_cost_gurobi, intermediate_solutions_gurobi
 
 def call_cp_solver(shifts_df: pd.DataFrame, tasks_df: pd.DataFrame, max_time: int, min_nursers: int):
 
