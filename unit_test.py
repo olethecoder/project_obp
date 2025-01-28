@@ -171,6 +171,16 @@ class Validator():
             print("All shifts don't exceed maximum number of nurses")
         return all_valid
     
+    def always_nurses_available(self):
+        all_valid = True
+        for i in range(0, self.N, 96):
+            if self.shifts_coverage[i] == 0:
+                print(f"No nurses at index {i}")
+                all_valid = False
+        if all_valid:
+            print("There are always nurses")
+        return all_valid
+    
     def validate_schedule(shifts, tasks):
         validator = Validator(shifts, tasks)
         validator.shift_coverage()
@@ -187,6 +197,9 @@ class Validator():
         print("Checking maximum number of nurses")
         max_nurses_valid = validator.check_max_nurses()
         print()
+
+        print("Checking if there are always nurses available")
+        always_nurses_valid = validator.always_nurses_available()
 
         all_valid = coverage_valid and window_valid and max_nurses_valid
         if all_valid:
