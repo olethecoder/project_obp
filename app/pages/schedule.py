@@ -19,49 +19,28 @@ if st.session_state.results is not None:
     )
     day_index = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].index(selected_day)
 
-    # Define a helper function to clamp the end time to 23:59 *of the same day* if it overflows
-    def clamp_end_time_tasks(row):
-        # Convert solution_start to a full datetime object, using "today" (or any single reference date).
-        start_dt = datetime.combine(datetime.today(), row['solution_start'])
-        
-        # Calculate the naive end (start + duration)
-        naive_end_dt = start_dt + timedelta(minutes=row['duration'])
-        
-        # Create a cutoff at 23:59 on the same date as start_dt
-        cutoff_dt = datetime.combine(start_dt.date(), time(23, 59))
-        
-        # Return whichever is earlier: either naive end or 23:59
-        return min(naive_end_dt, cutoff_dt)
-    
-    def clamp_end_time_shifts(row):
-        # Convert solution_start to a full datetime object, using "today" (or any single reference date).
-        start_dt = datetime.combine(datetime.today(), row['start'])
-        end_dt = datetime.combine(datetime.today(), row['end'])
-        
-        # Create a cutoff at 23:59 on the same date as start_dt
-        cutoff_dt = datetime.combine(start_dt.date(), time(23, 59))
-        
-        # Return whichever is earlier: either naive end or 23:59
-        return min(end_dt, cutoff_dt)
+    st.warning("Please open the graphs in full screen mode for the full schedule. Only tasks and shifts that start on the selected day are shown.")
 
-    ## Display the tasks results
     def display_tasks_results(data):
         data = data.copy()
-        
-        data['solution_start'] = pd.to_datetime(data['solution_start'], format='mixed').dt.time
 
-        # Create new columns for start and end as full datetime
+        data['solution_start'] = pd.to_datetime(data['solution_start'], format='mixed').dt.time
+        # add duration to solution start
+
+        data['solution_end'] = data.apply(
+            lambda row: datetime.combine(datetime.today(), row['solution_start']) + timedelta(minutes=row['duration']),
+            axis=1
+        )
+
+
         data['start_dt'] = data.apply(
             lambda row: datetime.combine(datetime.today(), row['solution_start']),
             axis=1
         )
-        data['end_dt'] = data.apply(clamp_end_time_tasks, axis=1)
 
-        # -----------------------------------------------------------------------------------
-        # STREAMLIT UI ELEMENTS
-        # -----------------------------------------------------------------------------------
+        data['end_dt'] = data['solution_end']
+
         st.subheader("Task Overview")
-
 
         # Filter data by selected day
         filtered_data = data[data["day_index"] == day_index]
@@ -101,7 +80,6 @@ if st.session_state.results is not None:
 
         fig.update_yaxes(categoryorder="category descending")
 
-        st.warning("Please open the graphs in full screen mode for the full schedule")
         st.plotly_chart(fig)
 
         if st.checkbox("Show raw task data"):
@@ -131,11 +109,8 @@ if st.session_state.results is not None:
         # -----------------------------------------------------------------------------------
         st.subheader("Shifts Overview")
 
-        # st.dataframe(data)
-
         day_index = selected_day.lower()
 
-        # Filter data by selected day
         filtered_data = data[(data[day_index] == 1) & (data['usage'] == 1)]
 
         filtered_data['index'] = filtered_data.index.astype(str) + " - " + filtered_data['name']
@@ -151,32 +126,6 @@ if st.session_state.results is not None:
             })
 
         timeline_data = pd.DataFrame(shifts)
-
-        # Convert Nurses Required to string for color mapping
-        # timeline_data['Amount planned'] = timeline_data['Amount planned'].astype(str)
-
-        # # -----------------------------------------------------------------------------------
-        # # PLOTLY TIMELINE
-        # # -----------------------------------------------------------------------------------
-        # fig = px.timeline(
-        #     timeline_data,
-        #     x_start="Start",
-        #     x_end="End",
-        #     y="Shift name",
-        #     color="Amount planned",
-        #     title=f"Shifts Overview for {selected_day}",
-        #     labels={"Amount planned": "Nurses"},
-        #     color_discrete_map={
-        #         "1": "blue",   # Color for tasks requiring 1 nurse
-        #         "2": "green",  # Color for tasks requiring 2 nurses
-        #         "3": "red"     # Color for tasks requiring 3 nurses
-        #     }
-        # )
-
-        # fig.update_yaxes(categoryorder="category descending")
-
-        # st.warning("Please open the graphs in full screen mode for the full schedule")
-        # st.plotly_chart(fig)
 
         df_agg = (
             timeline_data
@@ -201,8 +150,6 @@ if st.session_state.results is not None:
 
         df_agg['Count'] = df_agg['Count'].astype(str)
 
-        # 2. Plot using Plotly Timeline
-        #    - We'll color by 'Count', so we can visually see how many shifts have the same times
         fig = px.timeline(
             df_agg,
             x_start="Start",
@@ -228,8 +175,6 @@ if st.session_state.results is not None:
 
     display_tasks_results(tasks_result)
     display_nurse_results(shifts_result)
-
-
 
 
 else:
