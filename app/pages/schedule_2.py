@@ -131,14 +131,14 @@ if st.session_state.results is not None:
         # -----------------------------------------------------------------------------------
         st.subheader("Shifts Overview")
 
-        st.dataframe(data)
+        # st.dataframe(data)
 
         day_index = selected_day.lower()
 
         # Filter data by selected day
         filtered_data = data[(data[day_index] == 1) & (data['usage'] == 1)]
 
-        filtered_data['index'] = filtered_data.index
+        filtered_data['index'] = filtered_data.index.astype(str) + " - " + filtered_data['name']
 
         # Build list of shifts for the timeline
         shifts = []
@@ -153,19 +153,64 @@ if st.session_state.results is not None:
         timeline_data = pd.DataFrame(shifts)
 
         # Convert Nurses Required to string for color mapping
-        timeline_data['Amount planned'] = timeline_data['Amount planned'].astype(str)
+        # timeline_data['Amount planned'] = timeline_data['Amount planned'].astype(str)
 
-        # -----------------------------------------------------------------------------------
-        # PLOTLY TIMELINE
-        # -----------------------------------------------------------------------------------
+        # # -----------------------------------------------------------------------------------
+        # # PLOTLY TIMELINE
+        # # -----------------------------------------------------------------------------------
+        # fig = px.timeline(
+        #     timeline_data,
+        #     x_start="Start",
+        #     x_end="End",
+        #     y="Shift name",
+        #     color="Amount planned",
+        #     title=f"Shifts Overview for {selected_day}",
+        #     labels={"Amount planned": "Nurses"},
+        #     color_discrete_map={
+        #         "1": "blue",   # Color for tasks requiring 1 nurse
+        #         "2": "green",  # Color for tasks requiring 2 nurses
+        #         "3": "red"     # Color for tasks requiring 3 nurses
+        #     }
+        # )
+
+        # fig.update_yaxes(categoryorder="category descending")
+
+        # st.warning("Please open the graphs in full screen mode for the full schedule")
+        # st.plotly_chart(fig)
+
+        df_agg = (
+            timeline_data
+            .groupby(["Start", "End"], as_index=False)
+            .agg({
+                "Shift name": lambda x: ", ".join(x),  # Combine shift names
+                "Amount planned": "sum"               # Or 'count', depending on your needs
+            })
+        )
+
+        # Create a new column 'Count' to hold how many original rows were aggregated
+        df_counts = (
+            timeline_data
+            .groupby(["Start", "End"], as_index=False)
+            .size()  # size() returns a Series named 'size'
+            .rename(columns={"size": "Count"})
+        )
+
+        # Merge counts back into df_agg
+        df_agg = df_agg.merge(df_counts, on=["Start", "End"], how="left")
+
+
+        df_agg['Count'] = df_agg['Count'].astype(str)
+
+        # 2. Plot using Plotly Timeline
+        #    - We'll color by 'Count', so we can visually see how many shifts have the same times
         fig = px.timeline(
-            timeline_data,
+            df_agg,
             x_start="Start",
             x_end="End",
             y="Shift name",
-            color="Amount planned",
-            title=f"Shifts Overview for {selected_day}",
-            labels={"Amount planned": "Nurses"},
+            color="Count",              # color by the number of merged shifts
+            title="Shifts Overview",
+            labels={"Count": "Shifts"},  # Legend label
             color_discrete_map={
                 "1": "blue",   # Color for tasks requiring 1 nurse
                 "2": "green",  # Color for tasks requiring 2 nurses
@@ -175,7 +220,6 @@ if st.session_state.results is not None:
 
         fig.update_yaxes(categoryorder="category descending")
 
-        st.warning("Please open the graphs in full screen mode for the full schedule")
         st.plotly_chart(fig)
 
         if st.checkbox("Show raw shift data"):
