@@ -32,15 +32,15 @@ def main():
         min_nurses_anytime=1,
         max_solve_time=30.0
     )
-    total_cost_CP, shift_usages_CP, task_solution_CP, intermediate_solutions_CP = cp_solver.solve()
+    total_cost, shift_usages, task_solution, intermediate_solutions = cp_solver.solve()
 
-    if total_cost_CP is not None:
+    if total_cost is not None:
         print("\n--- CP Solver Results ---")
-        print(f"Total cost: {total_cost_CP:.2f}")
-        print("Shift usages:\n", shift_usages_CP)
-        print("\nTasks solution:", task_solution_CP)
+        print(f"Total cost: {total_cost:.2f}")
+        print("Shift usages:\n", shift_usages)
+        print("\nTasks solution:", task_solution)
         # print("\nIntermediate solutions:")
-        # for (obj_val, t) in intermediate_solutions_CP:
+        # for (obj_val, t) in intermediate_solutions:
         #     print(f"  cost={obj_val}, time={t:.2f}s")
     else:
         print("No CP solution found.")
@@ -52,17 +52,14 @@ def main():
         task_map=task_map,
         min_nurses_anytime=1,
         max_time_in_seconds=30.0,
-        shifts_df = shifts
     )
-    total_cost_gurobi, shifts_solution_gurobi, tasks_solution_gurobi = gurobi_solver.solve()
-    if shifts_solution_gurobi is not None:
+    shifts_solution_df, tasks_solution_df = gurobi_solver.solve()
+    if shifts_solution_df is not None:
         print("\n--- Gurobi Solver Results ---")
-        print(f"Total cost: {total_cost_gurobi:.2f}")
-        print("Shifts usages:\n", shifts_solution_gurobi)
-        print("\nTasks solution:\n", tasks_solution_gurobi)
+        print("Shifts solution:\n", shifts_solution_df)
+        print("\nTasks solution:\n", tasks_solution_df)
     else:
         print("No Gurobi solution found.")
-
 
 
 if __name__ == "__main__":

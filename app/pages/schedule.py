@@ -1,189 +1,236 @@
 import streamlit as st
 from sidebar import global_sidebar
 import pandas as pd
+from datetime import datetime, timedelta, time
 import plotly.express as px
-from datetime import datetime, timedelta
-import os
 
 global_sidebar()
 
-current_dir = os.path.dirname(__file__)
+st.title("Daily Schedule Viewer")
 
-st.title("Daily Schedule")
+if st.session_state.results is not None:
+    shifts_result, tasks_result, __ = st.session_state["results"]
 
-# Construct the path to the CSV file relative to the current file
-csv_path = os.path.join(current_dir, '../data/tasks_output.csv')
-
-uploaded_file = pd.read_csv(csv_path)
-
-if "results" not in st.session_state:
-    shifts_result, tasks_result = st.session_state["results"]
-else:
-    st.error("No results found. The data below is dummy data. Please run the solver first.")
-
-if uploaded_file is not None:
-    data = uploaded_file
-    
-    data['start_time'] = pd.to_datetime(data['start_time'], format='%H:%M').dt.time
-    
-    # Add a new column for the actual end time
-    data['end_time'] = data.apply(
-        lambda row: (
-            datetime.combine(datetime.today(), row['start_time']) 
-            + timedelta(minutes=row['duration_min'])
-        ).time(),
-        axis=1
-    )
-    
-    # --------------------
-    # SINGLE DAY SELECTOR
-    # --------------------
+        # Single day selector
     selected_day = st.radio(
-    "Select a day to view schedule",
-    ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"],
-    horizontal=True  # This parameter requires Streamlit 1.18 or newer
+        "Please choose the day you want to see the tasks for",
+        ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+        horizontal=True
     )
+    day_index = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].index(selected_day)
 
+    # Define a helper function to clamp the end time to 23:59 *of the same day* if it overflows
+    def clamp_end_time_tasks(row):
+        # Convert solution_start to a full datetime object, using "today" (or any single reference date).
+        start_dt = datetime.combine(datetime.today(), row['solution_start'])
+        
+        # Calculate the naive end (start + duration)
+        naive_end_dt = start_dt + timedelta(minutes=row['duration'])
+        
+        # Create a cutoff at 23:59 on the same date as start_dt
+        cutoff_dt = datetime.combine(start_dt.date(), time(23, 59))
+        
+        # Return whichever is earlier: either naive end or 23:59
+        return min(naive_end_dt, cutoff_dt)
     
-    # --------------------
-    # TASKS OVERVIEW
-    # --------------------
-    filtered_data = data[data[selected_day] == 1]
-    
-    tasks = []
-    for _, row in filtered_data.iterrows():
-        tasks.append({
-            "Task": row['task'],
-            "Start": datetime.combine(datetime.today(), row['start_time']),
-            "End": datetime.combine(datetime.today(), row['end_time']),
-            "Nurses Required": row['nurses_required']
-        })
-    
-    timeline_data = pd.DataFrame(tasks)
-    timeline_data['Nurses Required'] = timeline_data['Nurses Required'].astype(str)
+    def clamp_end_time_shifts(row):
+        # Convert solution_start to a full datetime object, using "today" (or any single reference date).
+        start_dt = datetime.combine(datetime.today(), row['start'])
+        end_dt = datetime.combine(datetime.today(), row['end'])
+        
+        # Create a cutoff at 23:59 on the same date as start_dt
+        cutoff_dt = datetime.combine(start_dt.date(), time(23, 59))
+        
+        # Return whichever is earlier: either naive end or 23:59
+        return min(end_dt, cutoff_dt)
 
-    fig = px.timeline(
-        timeline_data,
-        x_start="Start",
-        x_end="End",
-        y="Task",
-        color="Nurses Required",
-        title=f"Task Overview for {selected_day.capitalize()}",
-        labels={"Nurses Required": "Nurses"},
-        color_discrete_map={
-            "1": "blue",   # Color for tasks requiring 1 nurse
-            "2": "green",  # Color for tasks requiring 2 nurses
-            "3": "red"     # Color for tasks requiring 3 nurses
-        }
-    )
+    ## Display the tasks results
+    def display_tasks_results(data):
+        data = data.copy()
+        
+        data['solution_start'] = pd.to_datetime(data['solution_start'], format='mixed').dt.time
 
-    fig.update_yaxes(categoryorder="category descending")
+        # Create new columns for start and end as full datetime
+        data['start_dt'] = data.apply(
+            lambda row: datetime.combine(datetime.today(), row['solution_start']),
+            axis=1
+        )
+        data['end_dt'] = data.apply(clamp_end_time_tasks, axis=1)
 
-    st.warning("Please open the graphs in full screen mode for the full schedule")
-    st.plotly_chart(fig)
+        # -----------------------------------------------------------------------------------
+        # STREAMLIT UI ELEMENTS
+        # -----------------------------------------------------------------------------------
+        st.subheader("Task Overview")
 
-    if st.checkbox("Show raw task data"):
-        st.write(data)
 
-    # --------------------
-    # NURSE SCHEDULE
-    # --------------------
-    # Example DataFrame matching the format
-    nurse_schedule_data = [
-        [
-            "",        # name
-            "0:15",    # max_nurses
-            "0:00",    # start
-            "12:00",   # end
-            "0",       # break
-            "1",       # break_duration
-            "1",       # weight
-            "0",       # monday
-            "1",       # tuesday
-            "1",       # wednesday
-            "1",       # thursday
-            "1",       # friday
-            "1",       # saturday
-            "1",       # sunday
-            "3"        # number_of_nurses
-        ],
-        [
-            "",        # name
-            "1:00",    # max_nurses
-            "0:45",    # start
-            "12:00",   # end
-            "0",       # break
-            "1",       # break_duration
-            "1",       # weight
-            "1",       # monday
-            "1",       # tuesday
-            "1",       # wednesday
-            "1",       # thursday
-            "1",       # friday
-            "1",       # saturday
-            "1",       # sunday
-            "1"        # number_of_nurses
-        ]
-    ]
+        # Filter data by selected day
+        filtered_data = data[data["day_index"] == day_index]
 
-    nurse_schedule_columns = [
-        "name", "max_nurses", "start", "end", "break", "break_duration",
-        "weight", "monday", "tuesday", "wednesday", "thursday",
-        "friday", "saturday", "sunday", "number_of_nurses"
-    ]
-
-    nurse_schedule_df = pd.DataFrame(nurse_schedule_data, columns=nurse_schedule_columns)
-    
-    # Convert day columns to integers so we can filter with == 1
-    day_cols = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
-    for dcol in day_cols:
-        nurse_schedule_df[dcol] = nurse_schedule_df[dcol].astype(int)
-    
-    # --------------------
-    # GRAPHICAL OVERVIEW FOR NURSES
-    # --------------------
-
-    # Convert the 'start' and 'end' columns to datetime
-    nurse_schedule_df['start_dt'] = pd.to_datetime(nurse_schedule_df['start'], format='%H:%M')
-    nurse_schedule_df['end_dt'] = pd.to_datetime(nurse_schedule_df['end'], format='%H:%M')
-
-    # Filter nurse schedule by selected_day
-    filtered_nurse_df = nurse_schedule_df[nurse_schedule_df[selected_day] == 1]
-
-    if filtered_nurse_df.empty:
-        st.warning(f"No nurses scheduled for {selected_day.capitalize()}.")
-    else:
-        # Build data for the timeline
-        nurse_timeline_data = []
-        for i, row in filtered_nurse_df.iterrows():
-            nurse_name = row['name'] if row['name'] else f"Nurse {i+1}"
-            nurse_timeline_data.append({
-                "Nurse": nurse_name,
-                "Start": datetime.combine(datetime.today(), row['start_dt'].time()),
-                "End": datetime.combine(datetime.today(), row['end_dt'].time()),
-                "Number of Nurses": str(row['number_of_nurses'])
+        # Build list of tasks for the timeline
+        tasks = []
+        for _, row in filtered_data.iterrows():
+            tasks.append({
+                "Task": row['task_name'],
+                "Start": row['start_dt'],
+                "End": row['end_dt'],
+                "Nurses Required": row['required_nurses']
             })
 
-        timeline_nurses = pd.DataFrame(nurse_timeline_data)
+        timeline_data = pd.DataFrame(tasks)
 
-        # Plot the nurse schedule using Plotly
-        fig_nurses = px.timeline(
-            timeline_nurses,
+        # Convert Nurses Required to string for color mapping
+        timeline_data['Nurses Required'] = timeline_data['Nurses Required'].astype(str)
+
+        # -----------------------------------------------------------------------------------
+        # PLOTLY TIMELINE
+        # -----------------------------------------------------------------------------------
+        fig = px.timeline(
+            timeline_data,
             x_start="Start",
             x_end="End",
-            y="Nurse",
-            color="Number of Nurses",
-            title=f"Nurse Schedule for {selected_day.capitalize()}",
-            labels={"Number of Nurses": "Nurses"},
+            y="Task",
+            color="Nurses Required",
+            title=f"Task Overview for {selected_day}",
+            labels={"Nurses Required": "Nurses"},
             color_discrete_map={
-                "1": "blue", 
-                "2": "green",
-                "3": "red"
+                "1": "blue",   # Color for tasks requiring 1 nurse
+                "2": "green",  # Color for tasks requiring 2 nurses
+                "3": "red"     # Color for tasks requiring 3 nurses
             }
         )
 
-        fig_nurses.update_yaxes(categoryorder="category descending")
-        st.plotly_chart(fig_nurses)
+        fig.update_yaxes(categoryorder="category descending")
 
-    if st.checkbox("Show raw nurse schedule data"):
-        st.dataframe(nurse_schedule_df)
+        st.warning("Please open the graphs in full screen mode for the full schedule")
+        st.plotly_chart(fig)
+
+        if st.checkbox("Show raw task data"):
+            st.dataframe(data[data.day_index == day_index])
+
+    def display_nurse_results(data):
+
+        data = data.copy()
+        
+        data['start'] = pd.to_datetime(data['start'], format='mixed').dt.time
+        data['end'] = pd.to_datetime(data['end'], format='mixed').dt.time
+
+        data['start_dt'] = data.apply(
+            lambda row: datetime.combine(datetime.today(), row['start']),
+            axis=1
+        )
+
+        data['end_dt'] = data.apply(
+            lambda row: (datetime.combine(datetime.today(), row['end'])
+                        if row['end'] >= row['start']
+                        else datetime.combine(datetime.today() + timedelta(days=1), row['end'])),
+            axis=1
+        )
+
+        # -----------------------------------------------------------------------------------
+        # STREAMLIT UI ELEMENTS
+        # -----------------------------------------------------------------------------------
+        st.subheader("Shifts Overview")
+
+        # st.dataframe(data)
+
+        day_index = selected_day.lower()
+
+        # Filter data by selected day
+        filtered_data = data[(data[day_index] == 1) & (data['usage'] == 1)]
+
+        filtered_data['index'] = filtered_data.index.astype(str) + " - " + filtered_data['name']
+
+        # Build list of shifts for the timeline
+        shifts = []
+        for _, row in filtered_data.iterrows():
+            shifts.append({
+                "Shift name": row['index'],
+                "Start": row['start_dt'],
+                "End": row['end_dt'],
+                "Amount planned": row['usage']
+            })
+
+        timeline_data = pd.DataFrame(shifts)
+
+        # Convert Nurses Required to string for color mapping
+        # timeline_data['Amount planned'] = timeline_data['Amount planned'].astype(str)
+
+        # # -----------------------------------------------------------------------------------
+        # # PLOTLY TIMELINE
+        # # -----------------------------------------------------------------------------------
+        # fig = px.timeline(
+        #     timeline_data,
+        #     x_start="Start",
+        #     x_end="End",
+        #     y="Shift name",
+        #     color="Amount planned",
+        #     title=f"Shifts Overview for {selected_day}",
+        #     labels={"Amount planned": "Nurses"},
+        #     color_discrete_map={
+        #         "1": "blue",   # Color for tasks requiring 1 nurse
+        #         "2": "green",  # Color for tasks requiring 2 nurses
+        #         "3": "red"     # Color for tasks requiring 3 nurses
+        #     }
+        # )
+
+        # fig.update_yaxes(categoryorder="category descending")
+
+        # st.warning("Please open the graphs in full screen mode for the full schedule")
+        # st.plotly_chart(fig)
+
+        df_agg = (
+            timeline_data
+            .groupby(["Start", "End"], as_index=False)
+            .agg({
+                "Shift name": lambda x: ", ".join(x),  # Combine shift names
+                "Amount planned": "sum"               # Or 'count', depending on your needs
+            })
+        )
+
+        # Create a new column 'Count' to hold how many original rows were aggregated
+        df_counts = (
+            timeline_data
+            .groupby(["Start", "End"], as_index=False)
+            .size()  # size() returns a Series named 'size'
+            .rename(columns={"size": "Count"})
+        )
+
+        # Merge counts back into df_agg
+        df_agg = df_agg.merge(df_counts, on=["Start", "End"], how="left")
+
+
+        df_agg['Count'] = df_agg['Count'].astype(str)
+
+        # 2. Plot using Plotly Timeline
+        #    - We'll color by 'Count', so we can visually see how many shifts have the same times
+        fig = px.timeline(
+            df_agg,
+            x_start="Start",
+            x_end="End",
+            y="Shift name",
+            color="Count",              # color by the number of merged shifts
+            title="Shifts Overview",
+            labels={"Count": "Nurses", "Shift name": "Index - Shift Name"},  # Legend label
+            color_discrete_map={
+            "1": "blue",   # Color for tasks requiring 1 nurse
+            "2": "green",  # Color for tasks requiring 2 nurses
+            "3": "red"     # Color for tasks requiring 3 nurses
+            }
+        )
+
+        fig.update_yaxes(categoryorder="category descending")
+
+        st.plotly_chart(fig)
+
+        if st.checkbox("Show raw shift data"):
+            st.dataframe(data)
+
+
+    display_tasks_results(tasks_result)
+    display_nurse_results(shifts_result)
+
+
+
+
+else:
+    st.error("No results found.  Please run the solver first before viewing results.")
