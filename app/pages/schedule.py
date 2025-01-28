@@ -1,5 +1,5 @@
 import streamlit as st
-from sidebar import global_sidebar
+from code.ui.sidebar import global_sidebar
 import pandas as pd
 from datetime import datetime, timedelta, time
 import plotly.express as px

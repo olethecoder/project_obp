@@ -87,8 +87,8 @@ def global_sidebar() -> None:
     
     # Check if the example files exist
 
-    example_shifts = os.path.join(data_dir, "shifts.csv")
-    example_tasks = os.path.join(data_dir, "tasks.csv")
+    example_shifts = os.path.join(data_dir, "shifts_example.csv")
+    example_tasks = os.path.join(data_dir, "tasks_example.csv")
 
     example_shifts_file = pd.read_csv(example_shifts).to_csv()
     example_tasks_file = pd.read_csv(example_tasks).to_csv()
