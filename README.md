@@ -3,15 +3,14 @@
 ## Table of Contents
 1. Introduction
 2. Setup
-3. Importing Data
-4. Running the Dashboard
-5. Using the Dashboard
+3. Running the Dashboard
+4. Using the Dashboard
     - Manual Input for Tasks
     - Manual Input for Shifts
     - Schedule Overview
     - Show Input Files
-6. Solver
-7. Downloading Results
+5. Solver
+6. Downloading Results
 
 ## Introduction
 Project OBP is a Streamlit-based application designed to help manage and optimize nurse scheduling. The application allows users to input tasks and shifts manually, view schedules, and solve for optimal nurse allocation.
@@ -26,6 +25,11 @@ Project OBP is a Streamlit-based application designed to help manage and optimiz
 2. **Install the required packages**:
     ```
     pip install -r requirements.txt
+    ```
+
+3. **Import data from Google Sheets**:
+    ```
+    python import_data.py
     ```
 
 ## Running the Dashboard
