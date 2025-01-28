@@ -210,11 +210,11 @@ if st.session_state.results is not None:
             y="Shift name",
             color="Count",              # color by the number of merged shifts
             title="Shifts Overview",
-            labels={"Count": "Shifts"},  # Legend label
+            labels={"Count": "Nurses", "Shift name": "Index - Shift Name"},  # Legend label
             color_discrete_map={
-                "1": "blue",   # Color for tasks requiring 1 nurse
-                "2": "green",  # Color for tasks requiring 2 nurses
-                "3": "red"     # Color for tasks requiring 3 nurses
+            "1": "blue",   # Color for tasks requiring 1 nurse
+            "2": "green",  # Color for tasks requiring 2 nurses
+            "3": "red"     # Color for tasks requiring 3 nurses
             }
         )
 
