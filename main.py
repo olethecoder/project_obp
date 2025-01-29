@@ -11,7 +11,7 @@ def main():
     # --------------------------------------------------
     parser = InputParser("data")
     shifts = parser.parse_input("shifts_hard")
-    tasks = parser.parse_input("tasks_100_rog1")
+    tasks = parser.parse_input("tasks_500")
 
     # 2) Preprocess
     preprocessor = NurseSchedulingPreprocessor(shifts, tasks)

@@ -11,7 +11,6 @@ import gurobipy as gp
 from gurobipy import GRB
 import pandas as pd
 from preprocess import (
-    TIME_GRAN,
     N_BLOCKS,
     block_to_minute,
     block_to_timestr,
@@ -47,10 +46,11 @@ class GurobiNurseSolver:
 
         Args:
             shift_info (list): Preprocessed data about shifts.
+            starting_blocks (list): For each shift, list of N_BLOCKS indicating for each t whether shift has starting point using 0 or 1.
             tasks_info (list): Preprocessed data about tasks.
             task_map (list of tuple): (original_task_idx, day_index) for each tasks_info entry.
             min_nurses_anytime (int, optional): The minimal coverage at any time. Defaults to 1.
-            max_time_in_seconds (float, optional): Gurobi time limit in seconds. Defaults to 60.0.
+            max_time_in_seconds (float, optional): Gurobi time limit in seconds. Defaults to 1e10.
         """
         self.shift_info = shift_info
         self.starting_blocks = starting_blocks
@@ -77,27 +77,14 @@ class GurobiNurseSolver:
         self._build_model()
 
     def _build_model(self):
-        """Build all variables, objective, and constraints in the Gurobi model."""
-        # e[j, t] = shift coverage
-        # h[j, t] = shift start
+        """Build all constants, variables, objective, and constraints in the Gurobi model."""
+        
+        
         self.e = {}
-        # self.h = {}
         for j in self.S:
             coverage_array = self.shift_info[j - 1]["coverage"]
-            # For the "start" logic, we assume there's a "starting_blocks" array
-            # in shift_info or we need a loop to compute it. You might adjust
-            # based on how your preprocessor is storing that data.
-            # For demonstration, let's assume it stores 'coverage' in coverage_array
-            # and 'starting_blocks' in a parallel array:
-
-            # starting_blocks = self.shift_info[j - 1].get("starting_blocks", None)
-            # if not starting_blocks:
-            #     # If not stored, we can set them to 0 for now
-            #     starting_blocks = [0]*N_BLOCKS
-
             for t in self.T:
                 self.e[j, t] = coverage_array[t - 1] if (t - 1 < len(coverage_array)) else 0
-                # self.h[j, t] = starting_blocks[t - 1] if (t - 1 < len(starting_blocks)) else 0
 
         self.h = {}
         for t in self.T:
@@ -106,48 +93,32 @@ class GurobiNurseSolver:
 
         #Build candidate blocks for tasks
         self.candidate_blocks = []
+        max_T = max(self.T)
         for i in self.N:
+            self.candidate_blocks.append([])
+            c_idx = 0
             task = self.tasks_info[i - 1]
-            eb = task["earliest_block"]
-            lb = task["latest_block"]
-            dur = task["duration_blocks"]
-
-            c_blocks_for_i = []
-            # range of possible starts is [0,lb - eb]
-            for offset in range(0, lb - eb + 1):
-                actual_start = eb + offset
-                covered_list = [actual_start + k for k in range(dur)]
-                c_blocks_for_i.append(covered_list)
-            self.candidate_blocks.append(c_blocks_for_i)
-
-
-        # self.candidate_blocks = []
-        # max_T = max(self.T)
-        # for i in self.N:
-        #     self.candidate_blocks.append([])
-        #     c_idx = 0
-        #     task = self.tasks_info[i - 1]
-        #     eb = task['earliest_block']
-        #     lb = task['latest_block']
-        #     if lb >= eb:
-        #         for j in range(eb,lb+1):
-        #             self.candidate_blocks[i-1].append([])
-        #             for k in range(0,task['duration_blocks']):
-        #                 self.candidate_blocks[i-1][c_idx].append(j+k)
-        #             c_idx += 1
-        #     else:
-        #         for j in range(eb,max_T-1+1):
-        #             self.candidate_blocks[i-1].append([])
-        #             for k in range(0,task['duration_blocks']):
-        #                 if k + j <= max_T - 1:
-        #                     self.candidate_blocks[i-1][c_idx].append(j+k)
-        #                 else: self.candidate_blocks[i-1][c_idx].append(j+k - max_T)               
-        #             c_idx += 1
-        #         for j in range(0,lb+1):
-        #             self.candidate_blocks[i-1].append([])
-        #             for k in range(0,task['duration_blocks']):
-        #                self. candidate_blocks[i-1][c_idx].append(j+k)
-        #             c_idx += 1
+            eb = task['earliest_block']
+            lb = task['latest_block']
+            if lb >= eb:
+                for j in range(eb,lb+1):
+                    self.candidate_blocks[i-1].append([])
+                    for k in range(0,task['duration_blocks']):
+                        self.candidate_blocks[i-1][c_idx].append(j+k)
+                    c_idx += 1
+            else:
+                for j in range(eb,max_T-1+1):
+                    self.candidate_blocks[i-1].append([])
+                    for k in range(0,task['duration_blocks']):
+                        if k + j <= max_T - 1:
+                            self.candidate_blocks[i-1][c_idx].append(j+k)
+                        else: self.candidate_blocks[i-1][c_idx].append(j+k - max_T)               
+                    c_idx += 1
+                for j in range(0,lb+1):
+                    self.candidate_blocks[i-1].append([])
+                    for k in range(0,task['duration_blocks']):
+                       self. candidate_blocks[i-1][c_idx].append(j+k)
+                    c_idx += 1
 
         # Build g[i, b, t]
         self.g = {}
@@ -156,7 +127,7 @@ class GurobiNurseSolver:
             for b in range(c_size):
                 covered_list = self.candidate_blocks[i - 1][b]
                 for t in self.T:
-                    self.g[i, b + 1, t] = 1 if t-1 in covered_list else 0 ######################CHECK
+                    self.g[i, b + 1, t] = 1 if t-1 in covered_list else 0
 
         # Decision variables
         self.f = {}
@@ -244,9 +215,9 @@ class GurobiNurseSolver:
                 for i in self.N
             )
         
-            self.model.addConstr(self.r[t] == gp.quicksum(self.k[j] * self.h[j, t] for j in self.S)) ########################################
+            self.model.addConstr(self.r[t] == gp.quicksum(self.k[j] * self.h[j, t] for j in self.S)) 
 
-            self.model.addConstr(self.p[t] >= self.r[t]/50) ########################################
+            self.model.addConstr(self.p[t] >= self.r[t]/50) 
 
             self.model.addConstr(
                 self.x[t] >= sum_task_demand + self.r[t] + self.p[t],
