@@ -7,7 +7,7 @@ import pandas as pd
 # 1) Parse input
 parser = InputParser("data")
 shifts_df = parser.parse_input('shifts_hard')
-tasks_df = parser.parse_input('tasks')
+tasks_df = parser.parse_input('tasks_100_rog1')
 shifts_solution = shifts_df.copy()
 tasks_solution = tasks_df.copy()
 
@@ -21,8 +21,10 @@ preprocessor.process_data()
 ### Sets and Parameters
 shifts = preprocessor.get_shift_info()
 tasks = preprocessor.get_tasks_info()
-task_map = preprocessor.get_task_map() 
+task_map = preprocessor.get_task_map()
+print(shifts[0]["starting_blocks"][32])
 
+print(tasks)
 
 ########
 
@@ -76,14 +78,45 @@ def block_to_timestr(b: int) -> str:
     return f"{hh:02d}:{mm:02d}"
 
 # Candidate task blocks
+# candidate_blocks = []
+# for i in N:
+#     candidate_blocks.append([])
+#     for j in range(1,tasks[i-1]['latest_block']-tasks[i-1]['earliest_block']+2):
+#         candidate_blocks[i-1].append([])
+#         for k in range(1,tasks[i-1]['duration_blocks']+1):
+#             print(j)
+#             print(k)
+#             candidate_blocks[i-1][j-1].append(tasks[i-1]['earliest_block']+j-1+k-1)
+
 candidate_blocks = []
+max_T = max(T)
 for i in N:
     candidate_blocks.append([])
-    for j in range(1,tasks[i-1]['latest_block']-tasks[i-1]['earliest_block']+2):
-        candidate_blocks[i-1].append([])
-        for k in range(1,tasks[i-1]['duration_blocks']+1):
-            candidate_blocks[i-1][j-1].append(tasks[i-1]['earliest_block']+j-1+k-1)
+    c_idx = 0
+    eb = tasks[i-1]['earliest_block']
+    lb = tasks[i-1]['latest_block']
+    if lb >= eb:
+        for j in range(eb,lb+1):
+            candidate_blocks[i-1].append([])
+            for k in range(0,tasks[i-1]['duration_blocks']):
+                candidate_blocks[i-1][c_idx].append(j+k)
+            c_idx += 1
+    else:
+        for j in range(eb,max_T-1+1):
+            candidate_blocks[i-1].append([])
+            for k in range(0,tasks[i-1]['duration_blocks']):
+                if k + j <= max_T - 1:
+                    candidate_blocks[i-1][c_idx].append(j+k)
+                else: candidate_blocks[i-1][c_idx].append(j+k - max_T)               
+            c_idx += 1
+        for j in range(0,lb+1):
+            candidate_blocks[i-1].append([])
+            for k in range(0,tasks[i-1]['duration_blocks']):
+                candidate_blocks[i-1][c_idx].append(j+k)
+            c_idx += 1
 
+
+print(candidate_blocks)
 # BOOLEAN: Candidate task i block j covers time block t
 g = {}
 for i in N:
@@ -117,7 +150,8 @@ for i in N:
     for j in range(1,len(candidate_blocks[i-1])+1):
         f[i,j] = model.addVar(0,1,0,GRB.BINARY,name="block_active")
 u = model.addVars(N,T, vtype=GRB.BINARY, name="active")
-
+r = model.addVars(T,vtype=GRB.INTEGER,name="receiving")
+p = model.addVars(T,vtype=GRB.BINARY,name="providing")
 k = model.addVars(S, vtype=GRB.INTEGER, name="shift_scheduled")# INTEGER: Number of times shift i is scheduled
 n = model.addVars(T, vtype=GRB.INTEGER, name="total_nurses") # (PSEUDO-)INTEGER: Total number of nurses working at time t
 
@@ -137,13 +171,20 @@ for i in N:
     for t in T:
         model.addConstr(u[i,t] >= gp.quicksum(f[i,j]*g[i,j,t] for j in range(1,len(candidate_blocks[i-1])+1)))
 
-
-# Total number of tasks at time t (including handover)
+# PSEUDO-TASK: Total number of nurses to *receive* handover at time t
 for t in T:
-    model.addConstr(x[t] >= gp.quicksum(u[i,t]*tasks[i-1]["required_nurses"] for i in N) + gp.quicksum(k[j]*h[j,t] for j in S)+1)
-    #model.addConstr(x[t] >= gp.quicksum(u[i,t]*tasks[i-1]["required_nurses"] for i in N)
+    model.addConstr(r[t] == gp.quicksum(k[j]*h[j,t] for j in S))
 
-# PSEUDO-TASK 1: always 1 person present
+# PSEUDO-TASK: Indicator whether someone needs to *provide* handover at time t (only if arriving nurses need to receive handover)
+for t in T:
+    model.addConstr(p[t] >= r[t]/50)
+
+# Required coverage at time t
+for t in T:
+    model.addConstr(x[t] >= gp.quicksum(u[i,t]*tasks[i-1]["required_nurses"] for i in N)+r[t]+p[t])
+    # model.addConstr(x[t] >= gp.quicksum(u[i,t]*tasks[i-1]["required_nurses"] for i in N))
+
+# Always minimum number of nurses present
 for t in T:
     model.addConstr(x[t] >= MIN_NURSES_PRESENT)
 
@@ -155,7 +196,7 @@ for t in T:
 
 # Total shift coverage
 for t in T:
-    model.addConstr(n[t]<= gp.quicksum(e[j,t]*k[j] for j in S))
+    model.addConstr(n[t] == gp.quicksum(e[j,t]*k[j] for j in S))
 
 #######################CHECK: Combineren?
 

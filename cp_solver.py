@@ -56,7 +56,7 @@ class OptimalNurseSchedulerCP:
         task_map,
         shifts_df_original,  # <-- NEW: pass the original shifts_df
         min_nurses_anytime: int = 0,
-        max_solve_time: float = 60.0
+        #max_solve_time: float = 60.0
     ):
         """Initialize the CP solver with preprocessed data and the original shifts_df.
 
@@ -82,12 +82,12 @@ class OptimalNurseSchedulerCP:
 
         # Solver parameters
         self.min_nurses_anytime = min_nurses_anytime
-        self.max_solve_time = max_solve_time
+        #self.max_solve_time = max_solve_time
 
         # Internal lists for CP variables
         self.shift_usage_vars = []
         self.task_start_vars = []
-        self.task_end_vars = []
+        # self.task_end_vars = []
         self.task_covers_bool = []
 
         # Build model constraints
@@ -112,12 +112,12 @@ class OptimalNurseSchedulerCP:
 
             # (VarC2) For each day-specific task i, define start block and end block
             start_var = self.model.NewIntVar(e_b, l_b, f"task_{i}_start")
-            end_var   = self.model.NewIntVar(e_b + d_b, l_b + d_b, f"task_{i}_end")
-            # (C2a) Link end_var == start_var + duration
-            self.model.Add(end_var == start_var + d_b)
+            # end_var   = self.model.NewIntVar(e_b + d_b-1, l_b + d_b-1, f"task_{i}_end")
+            # # (C2a) Link end_var == start_var + duration
+            # self.model.Add(end_var == start_var + d_b-1) ########################################
 
             self.task_start_vars.append(start_var)
-            self.task_end_vars.append(end_var)
+            # self.task_end_vars.append(end_var)
 
             # (VarC3) For each feasible block in [earliest_block .. latest_block + duration],
             # create a Boolean var indicating if the task covers block b.
@@ -142,7 +142,7 @@ class OptimalNurseSchedulerCP:
                 self.model.Add(startv <= b).OnlyEnforceIf(aux1)
                 self.model.Add(startv > b).OnlyEnforceIf(aux1.Not())
 
-                self.model.Add(b < startv + d_b).OnlyEnforceIf(aux2)
+                self.model.Add(b < startv + d_b).OnlyEnforceIf(aux2) ############## END VAR
                 self.model.Add(b >= startv + d_b).OnlyEnforceIf(aux2.Not())
 
                 self.model.AddBoolAnd([aux1, aux2]).OnlyEnforceIf(boolvar)
@@ -210,7 +210,7 @@ class OptimalNurseSchedulerCP:
 
             # (C4c) coverage >= global min nurses (if set)
             if self.min_nurses_anytime > 0:
-                self.model.Add(effective_coverage >= self.min_nurses_anytime)
+                self.model.Add(cp_model.LinearExpr.Sum(coverage_terms) >= self.min_nurses_anytime) ##################
 
         # 5) OBJECTIVE: Minimize total cost
         # (C5) cost = sum( usage_s * length_blocks_s * weight_s )
@@ -235,7 +235,7 @@ class OptimalNurseSchedulerCP:
         import pandas as pd
         solver = cp_model.CpSolver()
         solver.parameters.num_search_workers = 8
-        solver.parameters.max_time_in_seconds = self.max_solve_time
+        #solver.parameters.max_time_in_seconds = self.max_solve_time
 
         start_time = time.time()
         callback = IntermediateSolutionCallback(start_time)

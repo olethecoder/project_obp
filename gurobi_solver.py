@@ -104,50 +104,50 @@ class GurobiNurseSolver:
             for j in self.S:
                 self.h[j,t] = 1 if j-1 in self.starting_blocks[t-1] else 0
 
-        # Build candidate blocks for tasks
-        # self.candidate_blocks = []
-        # for i in self.N:
-        #     task = self.tasks_info[i - 1]
-        #     eb = task["earliest_block"]
-        #     lb = task["latest_block"]
-        #     dur = task["duration_blocks"]
-
-        #     c_blocks_for_i = []
-        #     # range of possible starts is [0,lb - eb]
-        #     for offset in range(0, lb - eb + 1):
-        #         actual_start = eb + offset
-        #         covered_list = [actual_start + k for k in range(dur)]
-        #         c_blocks_for_i.append(covered_list)
-        #     self.candidate_blocks.append(c_blocks_for_i)
-
-
+        #Build candidate blocks for tasks
         self.candidate_blocks = []
-        max_T = max(self.T)
         for i in self.N:
-            self.candidate_blocks.append([])
-            c_idx = 0
             task = self.tasks_info[i - 1]
-            eb = task['earliest_block']
-            lb = task['latest_block']
-            if lb >= eb:
-                for j in range(eb,lb+1):
-                    self.candidate_blocks[i-1].append([])
-                    for k in range(0,task['duration_blocks']):
-                        self.candidate_blocks[i-1][c_idx].append(j+k)
-                    c_idx += 1
-            else:
-                for j in range(eb,max_T-1+1):
-                    self.candidate_blocks[i-1].append([])
-                    for k in range(0,task['duration_blocks']):
-                        if k + j <= max_T - 1:
-                            self.candidate_blocks[i-1][c_idx].append(j+k)
-                        else: self.candidate_blocks[i-1][c_idx].append(j+k - max_T)               
-                    c_idx += 1
-                for j in range(0,lb+1):
-                    self.candidate_blocks[i-1].append([])
-                    for k in range(0,task['duration_blocks']):
-                       self. candidate_blocks[i-1][c_idx].append(j+k)
-                    c_idx += 1
+            eb = task["earliest_block"]
+            lb = task["latest_block"]
+            dur = task["duration_blocks"]
+
+            c_blocks_for_i = []
+            # range of possible starts is [0,lb - eb]
+            for offset in range(0, lb - eb + 1):
+                actual_start = eb + offset
+                covered_list = [actual_start + k for k in range(dur)]
+                c_blocks_for_i.append(covered_list)
+            self.candidate_blocks.append(c_blocks_for_i)
+
+
+        # self.candidate_blocks = []
+        # max_T = max(self.T)
+        # for i in self.N:
+        #     self.candidate_blocks.append([])
+        #     c_idx = 0
+        #     task = self.tasks_info[i - 1]
+        #     eb = task['earliest_block']
+        #     lb = task['latest_block']
+        #     if lb >= eb:
+        #         for j in range(eb,lb+1):
+        #             self.candidate_blocks[i-1].append([])
+        #             for k in range(0,task['duration_blocks']):
+        #                 self.candidate_blocks[i-1][c_idx].append(j+k)
+        #             c_idx += 1
+        #     else:
+        #         for j in range(eb,max_T-1+1):
+        #             self.candidate_blocks[i-1].append([])
+        #             for k in range(0,task['duration_blocks']):
+        #                 if k + j <= max_T - 1:
+        #                     self.candidate_blocks[i-1][c_idx].append(j+k)
+        #                 else: self.candidate_blocks[i-1][c_idx].append(j+k - max_T)               
+        #             c_idx += 1
+        #         for j in range(0,lb+1):
+        #             self.candidate_blocks[i-1].append([])
+        #             for k in range(0,task['duration_blocks']):
+        #                self. candidate_blocks[i-1][c_idx].append(j+k)
+        #             c_idx += 1
 
         # Build g[i, b, t]
         self.g = {}
@@ -195,6 +195,18 @@ class GurobiNurseSolver:
                 vtype=GRB.INTEGER, name=f"n_{t}"
             )
 
+        self.r = {}
+        for t in self.T:
+            self.r[t] = self.model.addVar(
+                vtype=GRB.INTEGER, name=f"r_{t}"
+            )
+
+        self.p = {}
+        for t in self.T:
+            self.p[t] = self.model.addVar(
+                vtype=GRB.BINARY, name=f"p_{t}"
+            )
+
         # Objective
         obj_expr = gp.quicksum(
             self.k[j]
@@ -231,12 +243,13 @@ class GurobiNurseSolver:
                 self.u[i, t] * self.tasks_info[i - 1]["required_nurses"]
                 for i in self.N
             )
-            sum_starts = gp.quicksum(
-                self.k[j] * self.h[j, t]
-                for j in self.S
-            )
+        
+            self.model.addConstr(self.r[t] == gp.quicksum(self.k[j] * self.h[j, t] for j in self.S)) ########################################
+
+            self.model.addConstr(self.p[t] >= self.r[t]/50) ########################################
+
             self.model.addConstr(
-                self.x[t] >= sum_task_demand + sum_starts + 1, # +1, as 1 person is doing the handover
+                self.x[t] >= sum_task_demand + self.r[t] + self.p[t],
                 name=f"CoverageReq_{t}"
             )
             # also global min coverage
@@ -330,12 +343,3 @@ class GurobiNurseSolver:
 
         return (self.model.ObjVal,self.shifts_solution_df, tasks_solution_df, intermediate_solutions)
 
-    def get_solution(self):
-        """Get the final solution dataframes if solve() was successful.
-
-        Returns:
-            (self.shifts_solution_df, self.tasks_solution_df)
-        """
-        # This presupposes we have solved and stored them as instance variables
-        # but for clarity we just re-run solve or store them in solve().
-        pass

@@ -170,6 +170,16 @@ class Validator():
             print("All shifts don't exceed maximum number of nurses")
         return all_valid
     
+    def always_nurses_available(self):
+        all_valid = True
+        for i in range(0, self.N, 96):
+            if self.shifts_coverage[i] == 0:
+                print(f"No nurses at index {i}")
+                all_valid = False
+        if all_valid:
+            print("There are always enough nurses present")
+        return all_valid
+
     def validate_schedule(shifts, tasks):
         validator = Validator(shifts, tasks)
         validator.shift_coverage()
@@ -177,6 +187,10 @@ class Validator():
         
         print("Checking nurses coverage:")
         coverage_valid = validator.check_coverage()
+        print()
+
+        print("Checking minimum number of nurses:")
+        min_valid = validator.always_nurses_available()
         print()
 
         print("Checking tasks in window:")
@@ -187,12 +201,12 @@ class Validator():
         max_nurses_valid = validator.check_max_nurses()
         print()
 
-        all_valid = coverage_valid and window_valid and max_nurses_valid
+        all_valid = coverage_valid and window_valid and max_nurses_valid and min_valid
         if all_valid:
             print("Schedule is valid")
         else:
             print("Schedule is invalid")
     
-shifts = pd.read_csv("data/shifts_solution_Ole.csv")
-tasks = pd.read_csv("data/tasks_solution_Ole.csv")
+shifts = pd.read_csv("data/shifts_solution_CP.csv")
+tasks = pd.read_csv("data/tasks_solution_CP.csv")
 Validator.validate_schedule(shifts, tasks)

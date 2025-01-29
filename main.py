@@ -11,7 +11,7 @@ def main():
     # --------------------------------------------------
     parser = InputParser("data")
     shifts = parser.parse_input("shifts_hard")
-    tasks = parser.parse_input("tasks")
+    tasks = parser.parse_input("tasks_100_rog1")
 
     # 2) Preprocess
     preprocessor = NurseSchedulingPreprocessor(shifts, tasks)
@@ -30,9 +30,12 @@ def main():
         task_map=task_map,
         shifts_df_original=shifts,
         min_nurses_anytime=1,
-        max_solve_time=5.0
+        #max_solve_time=5.0
     )
     total_cost_CP, shift_usages_CP, task_solution_CP, intermediate_solutions_CP = cp_solver.solve()
+    
+    task_solution_CP.to_csv("data/tasks_solution_CP.csv", index=False)
+    shift_usages_CP.to_csv("data/shifts_solution_CP.csv", index=False)
 
     if total_cost_CP is not None:
         print("\n--- CP Solver Results ---")
@@ -52,10 +55,14 @@ def main():
         tasks_info=tasks_info,
         task_map=task_map,
         min_nurses_anytime=1,
-        max_time_in_seconds=30.0,
+        #max_time_in_seconds=30.0,
         shifts_df = shifts
     )
     total_cost_gurobi, shifts_solution_gurobi, tasks_solution_gurobi, intermediate_solutions_gurobi = gurobi_solver.solve()
+    
+    tasks_solution_gurobi.to_csv("data/tasks_solution_Gurobi.csv", index=False)
+    shifts_solution_gurobi.to_csv("data/shifts_solution_Gurobi.csv", index=False)
+    
     if shifts_solution_gurobi is not None:
         print("\n--- Gurobi Solver Results ---")
         print(f"Total cost: {total_cost_gurobi:.2f}")
