@@ -1,18 +1,18 @@
 from input_parser import InputParser
-from cp_solver import OptimalNurseSchedulerCP
+from cp_solver_copy import OptimalNurseSchedulerCP
 from preprocess import NurseSchedulingPreprocessor
 from gurobi_solver import GurobiNurseSolver
 import import_data
 
 def main():
     # import data
-    import_data.download_sheets()
+    # import_data.download_sheets()
     # --------------------------------------------------
     # 1) parse data
     # --------------------------------------------------
     parser = InputParser("data")
-    shifts = parser.parse_input("shifts_hard")
-    tasks = parser.parse_input("tasks_100_rog1")
+    shifts = parser.parse_input("shifts_example")
+    tasks = parser.parse_input("tasks_100_rog1_old")
 
     # 2) Preprocess
     preprocessor = NurseSchedulingPreprocessor(shifts, tasks)
@@ -31,7 +31,7 @@ def main():
         task_map=task_map,
         shifts_df_original=shifts,
         min_nurses_anytime=1,
-        max_solve_time=60.0
+        # max_solve_time=30000
     )
     total_cost_CP, shift_usages_CP, task_solution_CP, intermediate_solutions_CP = cp_solver.solve()
 
@@ -47,22 +47,22 @@ def main():
         print("No CP solution found.")
 
     # 3b) Solve with Gurobi solver
-    gurobi_solver = GurobiNurseSolver(
-        shift_info=shift_info,
-        tasks_info=tasks_info,
-        task_map=task_map,
-        min_nurses_anytime=1,
-        max_time_in_seconds=30.0,
-        shifts_df = shifts
-    )
-    total_cost_gurobi, shifts_solution_gurobi, tasks_solution_gurobi = gurobi_solver.solve()
-    if shifts_solution_gurobi is not None:
-        print("\n--- Gurobi Solver Results ---")
-        print(f"Total cost: {total_cost_gurobi:.2f}")
-        print("Shifts usages:\n", shifts_solution_gurobi)
-        print("\nTasks solution:\n", tasks_solution_gurobi)
-    else:
-        print("No Gurobi solution found.")
+    # gurobi_solver = GurobiNurseSolver(
+    #     shift_info=shift_info,
+    #     tasks_info=tasks_info,
+    #     task_map=task_map,
+    #     min_nurses_anytime=1,
+    #     max_time_in_seconds=30.0,
+    #     shifts_df = shifts
+    # )
+    # total_cost_gurobi, shifts_solution_gurobi, tasks_solution_gurobi = gurobi_solver.solve()
+    # if shifts_solution_gurobi is not None:
+    #     print("\n--- Gurobi Solver Results ---")
+    #     print(f"Total cost: {total_cost_gurobi:.2f}")
+    #     print("Shifts usages:\n", shifts_solution_gurobi)
+    #     print("\nTasks solution:\n", tasks_solution_gurobi)
+    # else:
+    #     print("No Gurobi solution found.")
 
 
 
