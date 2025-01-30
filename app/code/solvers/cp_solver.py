@@ -9,7 +9,7 @@ programming model and returns the final solution with references to task_map.
 import time
 from ortools.sat.python import cp_model
 import pandas
-from preprocess import (
+from code.processing.preprocess import (
     N_BLOCKS,
     block_to_minute,
     block_to_timestr,

@@ -23,6 +23,13 @@ if shifts_uploaded and tasks_uploaded:
     min_nurses = st.number_input("Minimum Nurses", value=2)
     solver_to_use = st.selectbox("Solver to use", options=["cp", "gurobi"], placeholder="cp")
 
+    solve_until_optimal = False
+
+    if solver_to_use == "gurobi":
+        if st.checkbox("Ignore max time and solve to optimality"):
+            max_time = 1e9
+            solve_until_optimal = True
+
     parser = InputParser()
 
     if st.button("Generate Schedule"):
@@ -67,7 +74,11 @@ if st.session_state.results is not None:
     st.subheader("Results")
     st.write("**Results are displayed here. These are the results with the parameters:**")
     st.write(f"Minimum number of nurses: {min_nurses}")
-    st.write(f"Max time for the solver: {max_time} seconds")
+    if solve_until_optimal:
+        st.write(f"Solved until optimal solution was found.")
+    else:
+        st.write(f"Max time for the solver: {max_time} seconds")
+
     st.write(f"Solver used: {solver}")
     st.write(f"Total cost: {cost_result:.2f}")
 
