@@ -1,6 +1,6 @@
 __pycache__/
-data/
 temp/
 *.pyc
 .devcontainer/
+data_temp/
 venv/

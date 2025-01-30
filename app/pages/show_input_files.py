@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
-from sidebar import global_sidebar
+from code.ui.sidebar import global_sidebar
 from io import BytesIO
 
 global_sidebar()
