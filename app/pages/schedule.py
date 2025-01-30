@@ -111,7 +111,7 @@ if st.session_state.results is not None:
 
         day_index = selected_day.lower()
 
-        filtered_data = data[(data[day_index] == 1) & (data['usage'] == 1)]
+        filtered_data = data[(data[day_index] == 1) & (data['usage'] != 1)]
 
         filtered_data['index'] = filtered_data.index.astype(str) + " - " + filtered_data['name']
 
@@ -170,7 +170,7 @@ if st.session_state.results is not None:
         st.plotly_chart(fig)
 
         if st.checkbox("Show raw shift data"):
-            st.dataframe(data)
+            st.dataframe(data[(data[day_index] == 1) & (data['usage'] != 0)])
 
 
     display_tasks_results(tasks_result)
