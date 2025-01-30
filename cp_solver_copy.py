@@ -56,7 +56,7 @@ class OptimalNurseSchedulerCP:
         task_map,
         shifts_df_original,  # <-- NEW: pass the original shifts_df
         min_nurses_anytime: int = 0,
-        max_solve_time: float = 60.0
+        #max_solve_time: float = 60.0
     ):
         """Initialize the CP solver with preprocessed data and the original shifts_df.
 
@@ -82,90 +82,74 @@ class OptimalNurseSchedulerCP:
 
         # Solver parameters
         self.min_nurses_anytime = min_nurses_anytime
-        self.max_solve_time = max_solve_time
+        #self.max_solve_time = max_solve_time
 
         # Internal lists for CP variables
         self.shift_usage_vars = []
         self.task_start_vars = []
-        self.task_end_vars = []
+        # self.task_end_vars = []
         self.task_covers_bool = []
 
         # Build model constraints
         self._build_model()
 
-    # TODO: tidy up
     def _build_model(self):
         """Constructs the CP-SAT model: shift usage vars, coverage constraints,
         handover logic, minimum nurse requirements, and objective.
         """
 
-        # 0) Adjust earliest/latest block ranges for tasks that span midnight on sunday
-        # We handle this by adding N_BLOCKS-1 to the latest block if it's less than the earliest block.
-        # This way, we can treat the task as a contiguous range from earliest to latest block.
-        # When adding the task coverage booleans, we'll wrap around the block index using %.
-        self.adjusted_ranges = []
-        for i, t in enumerate(self.tasks_info):
-            e_b = t["earliest_block"]
-            l_b = t["latest_block"]
-            if l_b < e_b:
-                l_b += N_BLOCKS 
-            # store (e_b, l_b) so we can reuse them
-            self.adjusted_ranges.append( (e_b, l_b) )
-
         # 1) SHIFT usage variables
         for s_idx, sh in enumerate(self.shift_info):
-            # (Var1) SHIFT USAGE: integer var for how many nurses are assigned to shift s_idx.
+            # (VarC1) SHIFT USAGE: integer var for how many nurses are assigned to shift s_idx.
             usage_var = self.model.NewIntVar(0, sh["max_nurses"], f"shift_{s_idx}_usage")
             self.shift_usage_vars.append(usage_var)
 
         # 2) TASK variables (start/end, coverage booleans)
         for i, t in enumerate(self.tasks_info):
-
-            # (Var2) For each feasible block in [earliest_block .. latest_block + duration],
-            # create a Boolean var indicating if the task covers block b.
-            e_b, l_b = self.adjusted_ranges[i]
+            e_b = t["earliest_block"]
+            l_b = t["latest_block"]
             d_b = t["duration_blocks"]
+
+            # (VarC2) For each day-specific task i, define start block and end block
+            start_var = self.model.NewIntVar(e_b, l_b, f"task_{i}_start")
+            # end_var   = self.model.NewIntVar(e_b + d_b-1, l_b + d_b-1, f"task_{i}_end")
+            # # (C2a) Link end_var == start_var + duration
+            # self.model.Add(end_var == start_var + d_b-1) ########################################
+
+            self.task_start_vars.append(start_var)
+            # self.task_end_vars.append(end_var)
+
+            # (VarC3) For each feasible block in [earliest_block .. latest_block + duration],
+            # create a Boolean var indicating if the task covers block b.
             covers_b = {}
             for b in range(e_b, l_b + d_b):
-                b_mod = b % N_BLOCKS # wrap around
-                covers_b[b_mod] = self.model.NewBoolVar(f"task_{i}_covers_{b_mod}")
-
+                if 0 <= b < N_BLOCKS:
+                    covers_b[b] = self.model.NewBoolVar(f"task_{i}_covers_{b}")
             self.task_covers_bool.append(covers_b)
 
-            # (Var3) For each day-specific task i, define start block
-            start_var = self.model.NewIntVar(e_b, l_b, f"task_{i}_start")
-            self.task_start_vars.append(start_var)
-
-                
-        # 2) Reify coverage booleans
+        # 2a) Reify coverage booleans
         # (C2b) If covers_b[b] = 1, it means the task i is active at block b:
         #       => start_var <= b < start_var + duration
         for i, t in enumerate(self.tasks_info):
-            e_b, l_b = self.adjusted_ranges[i]  # same adjusted values
-            d_b = t["duration_blocks"]
-            covers_b = self.task_covers_bool[i] # dictionary we built in the previous step
-
             startv = self.task_start_vars[i]
             d_b = t["duration_blocks"]
-            for ext_b in range(e_b, l_b + d_b):
-                b_mod = ext_b % N_BLOCKS 
-                boolvar = covers_b[b_mod]  # same dictionary from the creation step
+            for b, boolvar in self.task_covers_bool[i].items():
+                aux1 = self.model.NewBoolVar(f"aux1_{i}_{b}")  # startv <= b
+                aux2 = self.model.NewBoolVar(f"aux2_{i}_{b}")  # b < startv + d_b
 
-                aux1 = self.model.NewBoolVar(f"aux1_{i}_{ext_b}") # startv <= b
-                aux2 = self.model.NewBoolVar(f"aux2_{i}_{ext_b}") # b < startv + d_b
+                # (C2c) These constraints ensure the logical equivalence:
+                # covers_b[b] <=> (startv <= b < startv + d_b)
+                self.model.Add(startv <= b).OnlyEnforceIf(aux1)
+                self.model.Add(startv > b).OnlyEnforceIf(aux1.Not())
 
-                # covers_b[b_mod] <=> (start_var <= ext_b < start_var + d_b)
-                self.model.Add(startv <= ext_b).OnlyEnforceIf(aux1)
-                self.model.Add(startv > ext_b).OnlyEnforceIf(aux1.Not())
-
-                self.model.Add(ext_b < startv + d_b).OnlyEnforceIf(aux2) 
-                self.model.Add(ext_b >= startv + d_b).OnlyEnforceIf(aux2.Not())
+                self.model.Add(b < startv + d_b).OnlyEnforceIf(aux2) ############## END VAR
+                self.model.Add(b >= startv + d_b).OnlyEnforceIf(aux2.Not())
 
                 self.model.AddBoolAnd([aux1, aux2]).OnlyEnforceIf(boolvar)
                 self.model.AddBoolOr([aux1.Not(), aux2.Not()]).OnlyEnforceIf(boolvar.Not())
 
         # 3) HANDOVER logic
-        # (Var4) starts_at[b] = sum( usage_s for all shifts that start at block b )
+        # (VarC4) starts_at[b] = sum( usage_s for all shifts that start at block b )
         starts_at = [0]*N_BLOCKS
         max_possible_usage_per_block = [0]*N_BLOCKS
 
@@ -226,7 +210,7 @@ class OptimalNurseSchedulerCP:
 
             # (C4c) coverage >= global min nurses (if set)
             if self.min_nurses_anytime > 0:
-                self.model.Add(cp_model.LinearExpr.Sum(coverage_terms) >= self.min_nurses_anytime)
+                self.model.Add(cp_model.LinearExpr.Sum(coverage_terms) >= self.min_nurses_anytime) ##################
 
         # 5) OBJECTIVE: Minimize total cost
         # (C5) cost = sum( usage_s * length_blocks_s * weight_s )
@@ -251,7 +235,7 @@ class OptimalNurseSchedulerCP:
         import pandas as pd
         solver = cp_model.CpSolver()
         solver.parameters.num_search_workers = 8
-        solver.parameters.max_time_in_seconds = self.max_solve_time
+        #solver.parameters.max_time_in_seconds = self.max_solve_time
 
         start_time = time.time()
         callback = IntermediateSolutionCallback(start_time)
@@ -301,4 +285,3 @@ class OptimalNurseSchedulerCP:
         print(f"Final CP solution: cost={total_cost:.2f}, status={solver.StatusName(status)}")
 
         return (total_cost, shifts_solution_df, tasks_solution_df, intermediate_solutions)
-
