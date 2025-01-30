@@ -20,68 +20,84 @@ class Validator():
         hh, mm = time_str.split(":")
         hour = int(hh)
         minute = int(mm)
-        return hour * 4 + (minute // 15)
-    
+        return hour * 4 + minute // 15
+
     @staticmethod
     def get_end_day(start_time, end_time, start_day_index):
-
         start_quarter = Validator.to_quarter_of_day(start_time)
         end_quarter = Validator.to_quarter_of_day(end_time)
-
-        if end_quarter < start_quarter:
+        
+        if end_quarter < start_quarter:  
             return (start_day_index + 1) % 7
         else:
             return start_day_index
-        
+
     @staticmethod
     def get_shift_index(start_time, end_time, start_day_index, start_time_break, break_duration):
-
         start_quarter = Validator.to_quarter_of_day(start_time)
-        end_quarter   = Validator.to_quarter_of_day(end_time)
-
+        end_quarter = Validator.to_quarter_of_day(end_time)
+        
+        # Calculate end day index (for shifts crossing midnight)
         end_day_index = Validator.get_end_day(start_time, end_time, start_day_index)
-
-        start_index = (start_day_index * 96 + start_quarter + 1) % 672     #+1 because at beginning of shift nurse is briefed
-        end_index   = end_day_index * 96 + end_quarter
-
-        #break 
+        
+        # Calculate actual working start index (after briefing quarter)
+        start_index = (start_day_index * 96 + start_quarter + 1) % 672  # +1 for briefing
+        end_index = (end_day_index * 96 + end_quarter+1) % 672
+        
+        # Handle break times
         start_break_quarter = Validator.to_quarter_of_day(start_time_break)
         start_break_day_index = Validator.get_end_day(start_time, start_time_break, start_day_index)
-
-        start_break_index = start_break_day_index * 96 + start_break_quarter
-        end_break_index = (start_break_index + Validator.time_length(break_duration)) % 672
-
-        return start_index, end_index, start_break_index, end_break_index
-    
-    @staticmethod
-    def get_task_index(start_time, start_day_index, duration):
         
-        start_quarter = Validator.to_quarter_of_day(start_time)
-        start_index = start_day_index * 96 + start_quarter
-        end_index = (start_index + Validator.time_length(duration)) % 672
-        return start_index, end_index
+        # Calculate break indices
+        start_break_index = (start_break_day_index * 96 + start_break_quarter) % 672
+        end_break_index = (start_break_index + Validator.time_length(break_duration)+1) % 672
+        
+        return start_index, end_index, start_break_index, end_break_index
 
-    
     def shift_coverage(self):
+        self.shifts_coverage = np.zeros((7 * 24 * 4), dtype=int)
+        
         for _, shift in self.shifts.iterrows():
             for day in self.days:
                 if shift[day] == 1:
                     usage = int(shift["usage"])
-                    start_index, end_index, start_break_index, end_break_index = Validator.get_shift_index(shift["start"], shift["end"], self.days.index(day), shift["break"], shift["break_duration"])
-                    if start_index < end_index:
-                        self.shifts_coverage[start_index:start_break_index] += usage
-                        self.shifts_coverage[end_break_index:end_index] += usage
-                    elif start_index < start_break_index and start_break_index < end_break_index:
-                        self.shifts_coverage[start_index:start_break_index] += usage
-                        self.shifts_coverage[end_break_index:] += usage
-                        self.shifts_coverage[:end_index] += usage
-                    elif start_index < start_break_index and start_break_index > end_break_index:
-                        self.shifts_coverage[start_index:start_break_index] += usage
-                        self.shifts_coverage[end_break_index:end_index] += usage
-                    else:
-                        self.shifts_coverage[start_index:] += usage
-                        self.shifts_coverage[:start_break_index] += usage
-                        self.shifts_coverage[end_break_index:end_index] += usage
+                    start_index, end_index, start_break_index, end_break_index = Validator.get_shift_index(
+                        shift["start"], 
+                        shift["end"], 
+                        self.days.index(day), 
+                        shift["break"], 
+                        shift["break_duration"]
+                    )
+                    
+                    # Handle different cases for shift periods
+                    if break_duration := shift["break_duration"]:  # If there is a break
+                        if start_index < end_index:  # Shift doesn't cross midnight
+                            if start_break_index < end_break_index:  # Break doesn't cross midnight
+                                self.shifts_coverage[start_index:start_break_index] += usage
+                                self.shifts_coverage[end_break_index:end_index] += usage
+                            else:  # Break crosses midnight
+                                self.shifts_coverage[start_index:start_break_index] += usage
+                                self.shifts_coverage[end_break_index:] += usage
+                                self.shifts_coverage[:end_index] += usage
+                        else:  # Shift crosses midnight
+                            if start_break_index < end_break_index:  # Break doesn't cross midnight
+                                if start_break_index > start_index:  # Break starts same day
+                                    self.shifts_coverage[start_index:start_break_index] += usage
+                                    self.shifts_coverage[end_break_index:] += usage
+                                    self.shifts_coverage[:end_index] += usage
+                                else:  # Break starts next day
+                                    self.shifts_coverage[start_index:] += usage
+                                    self.shifts_coverage[:start_break_index] += usage
+                                    self.shifts_coverage[end_break_index:end_index] += usage
+                            else:  # Break crosses midnight
+                                self.shifts_coverage[start_index:] += usage
+                                self.shifts_coverage[:end_index] += usage
+                    else:  # No break
+                        if start_index < end_index:  # Shift doesn't cross midnight
+                            self.shifts_coverage[start_index:end_index] += usage
+                        else:  # Shift crosses midnight
+                            self.shifts_coverage[start_index:] += usage
+                            self.shifts_coverage[:end_index] += usage
         
         return self.shifts_coverage
     
@@ -102,12 +118,25 @@ class Validator():
         result_df = pd.DataFrame(combinations).drop_duplicates()
         return result_df
     
+
+    
+    def get_task_index(start_window, solution_start, start_day_index, duration):
+
+        solution_start_quarter = Validator.to_quarter_of_day(solution_start)
+        solution_start_day_index = Validator.get_end_day(start_window, solution_start, start_day_index)
+
+        start_index = solution_start_day_index * 96 + solution_start_quarter
+        end_index = (start_index + Validator.time_length(duration)) % 672
+        
+        return start_index, end_index
+
+
     def task_coverage(self):
         for _, task in self.tasks.iterrows():
 
             required_nurses = task["required_nurses"]
             
-            start_index, end_index = Validator.get_task_index(task["solution_start"], task["day_index"], task["duration"])
+            start_index, end_index = Validator.get_task_index(task["start_window"], task["solution_start"], task["day_index"], task["duration"])
             if start_index < end_index:
                 self.tasks_coverage[start_index:end_index] += required_nurses
             else:
@@ -116,7 +145,7 @@ class Validator():
         
         shift_briefing = Validator.get_unique_start_times(self, self.shifts)       #1 nurse to brief the starting shifts
         for _, row in shift_briefing.iterrows():
-            start_index, _ = Validator.get_task_index(row['start_time'], self.days.index(row['day']), 0)
+            start_index, _ = Validator.get_task_index(row['start_time'], row['start_time'], self.days.index(row['day']), 0)
             self.tasks_coverage[start_index] += 1
         
         return self.tasks_coverage
@@ -171,10 +200,20 @@ class Validator():
             print("All shifts don't exceed maximum number of nurses")
         return all_valid
     
+    def always_nurses_available(self):
+        all_valid = True
+        for i in range(0, self.N, 96):
+            if self.shifts_coverage[i] == 0:
+                print(f"No nurses at index {i}")
+                all_valid = False
+        if all_valid:
+            print("There are always nurses")
+        return all_valid
+    
     def validate_schedule(shifts, tasks):
         validator = Validator(shifts, tasks)
-        validator.shift_coverage()
-        validator.task_coverage()
+        cov_shifts = validator.shift_coverage()
+        cov_tasks = validator.task_coverage()
         
         print("Checking nurses coverage:")
         coverage_valid = validator.check_coverage()
@@ -187,6 +226,9 @@ class Validator():
         print("Checking maximum number of nurses")
         max_nurses_valid = validator.check_max_nurses()
         print()
+
+        print("Checking if there are always nurses available")
+        always_nurses_valid = validator.always_nurses_available()
 
         all_valid = coverage_valid and window_valid and max_nurses_valid
         if all_valid:
