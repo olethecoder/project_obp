@@ -27,18 +27,17 @@ class ResultAnalyzer:
             costs, time = ResultAnalyzer.extract_elements(intermediate_solutions_CP)
             
             new_data = pd.DataFrame({'Run': [i + 1 for x in range(len(intermediate_solutions_CP))], 
-                         'Costs': costs, 
+                         'Costs': [cost/100 for cost in costs], 
                          'Time': time})
             
             if i ==0:
                 self.cp_results = new_data
             else:
                 self.cp_results = pd.concat([self.cp_results, new_data], ignore_index=True)
+            
+            self.cp_results.to_json('results/cp_results.json')
 
 
-            # self.cp_results._append(pd.DataFrame({'Run': [i+1 for x in range(len(intermediate_solutions_CP))], 'Costs': costs, 'Time': time}), ignore_index = True)
-
-        print(self.cp_results)
         self.cp_results = ResultAnalyzer.bin_results(self.cp_results)
         print(self.cp_results)
 
@@ -69,10 +68,38 @@ class ResultAnalyzer:
         return aggregated
             
 
-    def _generate_gurobiresults(self, number_iterations):
-        pass
+    def _generate_gurobiresults(self):
+        total_cost_gurobi, shifts_solution_gurobi, tasks_solution_gurobi, intermediate_solutions_gurobi = self.gurobi_solver.solve()
 
-    def _visualise_results(self):
+        costs, time = ResultAnalyzer.extract_elements(intermediate_solutions_gurobi)
+            
+        new_data = pd.DataFrame({'Costs': costs, 'Time': time})
+            
+        self.gurobi_results = new_data
+        self.gurobi_results.to_json('results/gurobi_results.json')
+        
+    def _visualise_gurobiresults(self):
+    
+        # Plot
+        plt.figure(figsize=(10, 6))
+        plt.scatter(
+            self.gurobi_results['Time'],
+            self.gurobi_results['Costs']
+        )
+
+        # Labels and Title
+        plt.xlabel('Time in seconds')
+        plt.ylabel('Costs')
+        plt.title('Costs of intermediate solution over Time with gurobi')
+        plt.grid(True)
+        plt.legend()
+
+        # Show Plot
+        plt.tight_layout()
+        plt.savefig('optimal_hard_instance_gurobi_plot.png', dpi=300, bbox_inches='tight')
+        plt.show()
+
+    def _visualise_cpresults(self):
     
         # Plot
         plt.figure(figsize=(10, 6))
@@ -95,6 +122,7 @@ class ResultAnalyzer:
 
         # Show Plot
         plt.tight_layout()
+        plt.savefig('cp_plot.png', dpi=300, bbox_inches='tight')
         plt.show()
 
 
@@ -104,7 +132,7 @@ if __name__ == '__main__':
     # --------------------------------------------------
     parser = InputParser("data")
     shifts = parser.parse_input("shifts_hard")
-    tasks = parser.parse_input("tasks_hard")
+    tasks = parser.parse_input("tasks_100_rog1")
 
     # 2) Preprocess
     preprocessor = NurseSchedulingPreprocessor(shifts, tasks)
@@ -123,11 +151,24 @@ if __name__ == '__main__':
         task_map=task_map,
         shifts_df_original=shifts,
         min_nurses_anytime=1,
-        max_solve_time=30.0
+        max_solve_time=60
     )
 
-    # Visualise results over 100 iterations on hard instance
+    # 4a) Solve with Gurobi Solver
+    gurobi_solver = GurobiNurseSolver(
+        shift_info=shift_info,
+        starting_blocks=shift_start_blocks,
+        tasks_info=tasks_info,
+        task_map=task_map,
+        min_nurses_anytime=1,
+        shifts_df = shifts
+    )
 
-    analyzer = ResultAnalyzer(cp_solver, None)
-    analyzer._generate_cpresults(2)
-    analyzer._visualise_results()
+    # Visualise results over 100 iterations on hard instance with CP solver
+
+    analyzer = ResultAnalyzer(cp_solver, gurobi_solver)
+    # analyzer._generate_cpresults(100)
+    # analyzer._visualise_cpresults()
+    analyzer._generate_gurobiresults()
+    analyzer._visualise_gurobiresults()
+  
