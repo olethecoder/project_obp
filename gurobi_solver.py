@@ -123,7 +123,6 @@ class GurobiNurseSolver:
                     for k in range(0,task['duration_blocks']):
                        self. candidate_blocks[i-1][c_idx].append(j+k)
                     c_idx += 1
-        print(self.candidate_blocks[4])
 
         # Binary constants indicating whether candidate task block b for task i covers time block t
         self.g = {}
