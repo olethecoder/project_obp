@@ -7,7 +7,7 @@ import pandas as pd
 # Load the global sidebar
 global_sidebar()
 
-st.subheader("Nusing scheduling solver")
+st.subheader("Nursing scheduling solver")
 st.write("This is a solver for the nursing scheduling problem. It takes two files as input: one for the shifts and one for the tasks. The solver will then generate a schedule for the nurses and the tasks.")
 
 # make a user input that allow the user to input max time for the solver (minutes / seconds format), and the minimum number of nurses that should be working at any given time (integer)
