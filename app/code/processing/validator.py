@@ -347,7 +347,7 @@ class Validator():
         always_nurses_valid = validator.always_nurses_available()
 
         # Final determination based on the checks
-        all_valid = coverage_valid and window_valid and max_nurses_valid
+        all_valid = coverage_valid and window_valid and max_nurses_valid and always_nurses_valid
         if all_valid:
             print("Schedule is valid")
             return True
