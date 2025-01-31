@@ -15,21 +15,20 @@
 ## Introduction
 Project OBP is a Streamlit-based application designed to help manage and optimize nurse scheduling. The application allows users to input tasks and shifts manually, view schedules, and solve for optimal nurse allocation.
 
+> Please note that a Gurobi liscence is required to run the Gurobi version of the solver. If no license is found, the solver will not run.
+
 ## Setup
-1. **Clone the repository**:
+1. **Clone the repository and cd into the correct directory**:
     ```
-    git clone <repository-url>
-    cd <repository-directory>
+    git clone https://github.com/kurkmeister/project_obp.git
+    ```
+    ```
+    cd project-obp
     ```
 
 2. **Install the required packages**:
     ```
     pip install -r requirements.txt
-    ```
-
-3. **Import data from Google Sheets**:
-    ```
-    python import_data.py
     ```
 
 ## Running the Dashboard
