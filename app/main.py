@@ -1,6 +1,6 @@
 import streamlit as st
 from code.ui.sidebar import global_sidebar
-from code.utils.utils import solver_combined, InputParser, verify_solution
+from code.utils.utils import solver_combined, InputParser
 from code.processing.validator import Validator
 import pandas as pd
 

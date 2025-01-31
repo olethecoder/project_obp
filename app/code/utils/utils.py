@@ -47,8 +47,8 @@ def call_gurobi_solver(shifts_df: pd.DataFrame, tasks_df: pd.DataFrame, max_time
         starting_blocks=shift_start_blocks,
         tasks_info=tasks_info,
         task_map=task_map,
-        min_nurses_anytime=1,
-        max_time_in_seconds=30.0,
+        min_nurses_anytime=min_nursers,
+        max_time_in_seconds=max_time,
         shifts_df = shifts_df
     )
 
@@ -118,11 +118,3 @@ class InputParser:
             raise ValueError("Invalid file input type. Expected str or bytes.")
 
         raise FileNotFoundError(f"No readable file found for {file_input} in {self.data_dir} with extensions: {extensions}")
-
-def verify_solution(shifts_df: pd.DataFrame, tasks_df: pd.DataFrame, always_false=False) -> bool:
-    """
-    Verify the correctness of the solution.
-    """
-    if always_false:
-        return False
-    return True
