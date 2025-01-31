@@ -15,7 +15,7 @@
 ## Introduction
 Project OBP is a Streamlit-based application designed to help manage and optimize nurse scheduling. The application allows users to input tasks and shifts manually, view schedules, and solve for optimal nurse allocation.
 
-> Please note that a Gurobi liscence is required to run the Gurobi version of the solver. If no license is found, the solver will not run.
+> Please note that a Gurobi license is required to run the Gurobi version of the solver. If no license is found, the solver will not run.
 
 ## Setup
 1. **Clone the repository and cd into the correct directory**:
